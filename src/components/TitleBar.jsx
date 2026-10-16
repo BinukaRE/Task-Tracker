@@ -23,7 +23,7 @@ export default function TitleBar() {
           <img
             src="/icon.png"
             alt="Task Flow Icon"
-            className="w-6 h-6 rounded-lg shadow-md shadow-indigo-500/20 object-cover"
+            className="w-7 h-7 object-contain drop-shadow-md select-none pointer-events-none"
           />
           <span className="font-bold text-sm tracking-tight text-slate-100 flex items-center gap-1.5">
             Task Flow
