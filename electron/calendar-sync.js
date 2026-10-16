@@ -134,6 +134,11 @@ async function getAvailableCalendars() {
  * - Does not accept edits from Apple Calendar to existing tasks.
  */
 async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
+  if (!Array.isArray(existingTasks)) {
+    options = existingTasks || {};
+    existingTasks = [];
+  }
+
   if (process.platform !== 'darwin') {
     return {
       success: false,
