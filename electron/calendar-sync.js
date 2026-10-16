@@ -3,12 +3,20 @@ const util = require('util');
 
 const execAsync = util.promisify(exec);
 
+// System calendars that should not be scraped as user tasks
+const SYSTEM_CALENDARS = [
+  'birthdays',
+  'siri suggestions',
+  'holidays in sri lanka',
+  'scheduled reminders',
+];
+
 /**
- * Execute AppleScript via stdin with safety timeout
+ * Execute AppleScript via stdin with safety timeout (plain text output, no '-s s' quotes)
  */
 function runAppleScript(script, timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('osascript', ['-s', 's']);
+    const proc = spawn('osascript');
     let stdout = '';
     let stderr = '';
     let isDone = false;
@@ -16,8 +24,8 @@ function runAppleScript(script, timeoutMs = 12000) {
     const timer = setTimeout(() => {
       if (!isDone) {
         isDone = true;
-        proc.kill();
-        reject(new Error('AppleScript execution timed out (12s)'));
+        proc.kill('SIGKILL');
+        reject(new Error(`AppleScript execution timed out (${timeoutMs}ms)`));
       }
     }, timeoutMs);
 
@@ -68,20 +76,22 @@ end tell
 `;
 
   try {
-    const result = await runAppleScript(script, 5000);
-    if (result.startsWith('OK:')) {
-      const count = parseInt(result.replace('OK:', ''), 10) || 0;
+    const raw = await runAppleScript(script, 6000);
+    const cleaned = raw.replace(/^"|"$/g, '').trim();
+
+    if (cleaned.startsWith('OK:')) {
+      const count = parseInt(cleaned.replace('OK:', ''), 10) || 0;
       return { authorized: true, isMac: true, calendarCount: count };
     } else {
-      const is1743 = result.includes('-1743') || result.toLowerCase().includes('not authorized');
+      const is1743 = cleaned.includes('-1743') || cleaned.toLowerCase().includes('not authorized');
       return {
         authorized: false,
         isMac: true,
         isPermissionError: is1743,
-        error: result,
+        error: cleaned,
         message: is1743
-          ? 'Not authorized to send Apple events to Calendar (-1743)'
-          : result,
+          ? 'Not authorized to access Apple Calendar (-1743). Please grant permission in System Settings.'
+          : cleaned,
       };
     }
   } catch (err) {
@@ -93,9 +103,25 @@ end tell
       isPermissionError: is1743,
       error: errMsg,
       message: is1743
-        ? 'Not authorized to send Apple events to Calendar (-1743)'
+        ? 'Not authorized to access Apple Calendar (-1743). Please grant permission in System Settings.'
         : errMsg,
     };
+  }
+}
+
+/**
+ * Get list of available calendar names
+ */
+async function getAvailableCalendars() {
+  if (process.platform !== 'darwin') return [];
+  try {
+    const script = `tell application "Calendar" to get name of every calendar`;
+    const namesRaw = await runAppleScript(script, 5000);
+    const cleaned = namesRaw.replace(/^"|"$/g, '').trim();
+    if (!cleaned) return [];
+    return cleaned.split(',').map(s => s.trim()).filter(Boolean);
+  } catch (err) {
+    return [];
   }
 }
 
@@ -115,144 +141,149 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
     };
   }
 
-  const rangeDays = options.rangeDays || 30;
+  // Generous rolling window: default past 60 days to next 90 days (captures semester exams and active schedules)
+  const pastDays = options.pastDays !== undefined ? Number(options.pastDays) : 60;
+  const futureDays = options.rangeDays !== undefined ? Number(options.rangeDays) : 90;
+  const targetCalendarName = options.targetCalendar || null;
 
   // Track existing IDs and titles so we NEVER duplicate or alter existing tasks
   const existingUids = new Set(existingTasks.map(t => t.calendarEventUid).filter(Boolean));
   const existingTitles = new Set(existingTasks.map(t => (t.title || '').toLowerCase().trim()));
 
-  // Multi-tier resilient AppleScript:
-  // 1. Attempts date-filtered query
-  // 2. If 'whose' clause throws an error or fails due to macOS AppleScript bugs, falls back to full calendar inspection
-  const script = `
-tell application "Calendar"
-  set eventList to {}
-  set nowRef to (current date)
-  set startDate to nowRef - (7 * days)
-  set endDate to nowRef + (${rangeDays} * days)
-
-  set calList to calendars
-
-  repeat with aCal in calList
-    set cName to name of aCal
-    set foundEvs to {}
-
-    -- Strategy A: Fast filtered query
-    try
-      set foundEvs to (every event of aCal whose (start date ≥ startDate and start date ≤ endDate))
-    on error
-      set foundEvs to {}
-    end try
-
-    -- Strategy B: Fallback if Strategy A returned 0 (bypasses AppleScript whose clause bugs with date objects)
-    if (count of foundEvs) is 0 then
-      try
-        set allEvs to every event of aCal
-        repeat with ev in allEvs
-          try
-            set sDate to (start date of ev)
-            if (sDate ≥ startDate and sDate ≤ endDate) then
-              set end of foundEvs to ev
-            end if
-          end try
-        end repeat
-      on error
-        -- Inaccessible or empty calendar
-      end try
-    end if
-
-    -- Extract metadata from found events
-    repeat with ev in foundEvs
-      try
-        set evTitle to (summary of ev)
-        if evTitle is not missing value and evTitle is not "" then
-          set evDesc to (description of ev)
-          if evDesc is missing value then set evDesc to ""
-          
-          set evUid to (uid of ev)
-          if evUid is missing value then set evUid to ""
-          
-          set evStart to (start date of ev)
-          set evEnd to (end date of ev)
-          
-          set evStartIso to (evStart as «class isot» as string)
-          set evEndIso to (evEnd as «class isot» as string)
-          
-          set end of eventList to (evUid & ":::SEP:::" & evTitle & ":::SEP:::" & evStartIso & ":::SEP:::" & evEndIso & ":::SEP:::" & evDesc & ":::SEP:::" & cName)
-        end if
-      end try
-    end repeat
-  end repeat
-
-  set AppleScript's text item delimiters to ":::ROW:::"
-  return eventList as string
-end tell
-`;
-
   try {
-    const rawOutput = await runAppleScript(script, 15000);
+    // 1. Fetch all calendar names
+    const getNamesScript = `tell application "Calendar" to get name of every calendar`;
+    const namesRaw = await runAppleScript(getNamesScript, 6000);
+    const cleanedNames = namesRaw.replace(/^"|"$/g, '').trim();
+    const allCalNames = cleanedNames.split(',').map(s => s.trim()).filter(Boolean);
+
+    if (allCalNames.length === 0) {
+      return {
+        success: true,
+        newTasks: [],
+        totalDiscovered: 0,
+        scrapedCount: 0,
+        message: 'No calendars found in Apple Calendar.',
+      };
+    }
+
     const discoveredEvents = [];
     const newTasks = [];
 
-    if (rawOutput && rawOutput.length > 0) {
-      const rows = rawOutput.split(':::ROW:::').filter(r => r.trim().length > 0);
+    // 2. Iterate each user calendar safely with individual 10s timeouts
+    for (let i = 1; i <= allCalNames.length; i++) {
+      const calName = allCalNames[i - 1];
+      const calLower = calName.toLowerCase();
 
-      for (const row of rows) {
-        const parts = row.split(':::SEP:::');
-        if (parts.length >= 6) {
-          const uid = parts[0].trim();
-          const title = parts[1].trim();
-          const startDateStr = parts[2].trim();
-          const endDateStr = parts[3].trim();
-          const desc = parts[4].trim();
-          const calName = parts[5].trim();
+      // Skip system or unrequested calendars
+      if (SYSTEM_CALENDARS.some(s => calLower.includes(s))) {
+        continue;
+      }
+      if (targetCalendarName && targetCalendarName !== 'all' && calName !== targetCalendarName) {
+        continue;
+      }
 
-          const startDate = new Date(startDateStr);
-          const endDate = endDateStr ? new Date(endDateStr) : null;
-          const dueDate = !isNaN(startDate.getTime())
-            ? startDate.toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
+      const calScript = `
+tell application "Calendar"
+  set nowRef to (current date)
+  set startDate to nowRef - (${pastDays} * days)
+  set endDate to nowRef + (${futureDays} * days)
+  set res to {}
+  try
+    set targetCal to calendar ${i}
+    set evs to (events of targetCal whose start date >= startDate and start date <= endDate)
+    repeat with ev in evs
+      try
+        set evUid to uid of ev
+        set evTitle to summary of ev
+        set evStart to (start date of ev as «class isot» as string)
+        set evEnd to (end date of ev as «class isot» as string)
+        set evDesc to description of ev
+        if evDesc is missing value then set evDesc to ""
+        set end of res to (evUid & ":::SEP:::" & evTitle & ":::SEP:::" & evStart & ":::SEP:::" & evEnd & ":::SEP:::" & evDesc)
+      end try
+    end repeat
+  end try
+  set AppleScript's text item delimiters to ":::ROW:::"
+  return res as string
+end tell
+`;
 
-          discoveredEvents.push({
-            uid,
-            title,
-            startDateStr,
-            endDateStr,
-            desc,
-            calName,
-          });
+      try {
+        const rawOutput = await runAppleScript(calScript, 10000);
+        if (rawOutput && rawOutput.length > 0) {
+          const rows = rawOutput.split(':::ROW:::').filter(r => r.trim().length > 0);
 
-          // STRICT SCRAPE FILTER:
-          // 1. Must NOT already be scraped (check UID)
-          // 2. Must NOT match an existing task title
-          // 3. Edits to existing tasks in Calendar are strictly NOT applied to Task Flow
-          const alreadyExists = (uid && existingUids.has(uid)) || existingTitles.has(title.toLowerCase());
+          for (const row of rows) {
+            const parts = row.split(':::SEP:::');
+            if (parts.length >= 4) {
+              const uid = parts[0].trim();
+              const title = parts[1].trim();
+              const startDateStr = parts[2].trim();
+              const endDateStr = parts[3].trim();
+              const desc = (parts[4] || '').trim();
 
-          if (!alreadyExists) {
-            newTasks.push({
-              id: 'task-cal-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-              title: title,
-              description: desc ? `[Apple Calendar: ${calName}]\n\n${desc}` : `[Apple Calendar: ${calName}]`,
-              status: 'todo',
-              priority: calName.toLowerCase().includes('work') ? 'high' : 'medium',
-              category: calName === 'Work' ? 'Work' : (calName === 'Personal' ? 'Personal' : 'General'),
-              tags: ['AppleCalendar', calName],
-              dueDate: dueDate,
-              startTime: !isNaN(startDate.getTime()) ? startDate.toISOString() : null,
-              endTime: endDate && !isNaN(endDate.getTime()) ? endDate.toISOString() : null,
-              estimatedMinutes: 60,
-              actualMinutes: 0,
-              subtasks: [],
-              calendarEventUid: uid,
-              isCalendarScraped: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
+              const startDate = new Date(startDateStr);
+              const endDate = endDateStr ? new Date(endDateStr) : null;
+              const dueDate = !isNaN(startDate.getTime())
+                ? startDate.toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0];
 
-            existingTitles.add(title.toLowerCase());
-            if (uid) existingUids.add(uid);
+              discoveredEvents.push({
+                uid,
+                title,
+                startDateStr,
+                endDateStr,
+                desc,
+                calName,
+              });
+
+              // Check if task already exists in Task Flow
+              const alreadyExists = (uid && existingUids.has(uid)) || existingTitles.has(title.toLowerCase());
+
+              if (!alreadyExists) {
+                // Determine appropriate priority and category
+                const isExam = title.toLowerCase().includes('exam') || title.toLowerCase().includes('cat');
+                const isMeeting = title.toLowerCase().includes('meeting') || title.toLowerCase().includes('mentor');
+
+                let category = 'General';
+                if (calName.includes('ousl') || calName.toLowerCase().includes('university')) {
+                  category = 'University';
+                } else if (calName === 'Work') {
+                  category = 'Work';
+                } else if (calName === 'Personal' || calName.includes('@gmail')) {
+                  category = 'Personal';
+                }
+
+                newTasks.push({
+                  id: 'task-cal-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+                  title: title,
+                  description: desc ? `[${calName}]\n\n${desc}` : `[Apple Calendar: ${calName}]`,
+                  status: 'todo',
+                  priority: isExam ? 'urgent' : (isMeeting ? 'high' : 'medium'),
+                  category: category,
+                  tags: ['AppleCalendar', calName],
+                  dueDate: dueDate,
+                  startTime: !isNaN(startDate.getTime()) ? startDate.toISOString() : null,
+                  endTime: endDate && !isNaN(endDate.getTime()) ? endDate.toISOString() : null,
+                  estimatedMinutes: 60,
+                  actualMinutes: 0,
+                  subtasks: [],
+                  calendarEventUid: uid,
+                  isCalendarScraped: true,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+
+                existingTitles.add(title.toLowerCase());
+                if (uid) existingUids.add(uid);
+              }
+            }
           }
         }
+      } catch (calErr) {
+        // Individual calendar error or timeout - continue to other calendars without failing
+        console.warn(`Calendar "${calName}" scrape skipped:`, calErr.message);
       }
     }
 
@@ -264,7 +295,7 @@ end tell
       message: newTasks.length > 0
         ? `Successfully scraped ${newTasks.length} new event(s) from Apple Calendar!`
         : (discoveredEvents.length > 0
-            ? `Found ${discoveredEvents.length} calendar event(s). No new events to import (existing tasks remain protected and unedited).`
+            ? `Checked ${discoveredEvents.length} calendar event(s). All events are already in Task Flow.`
             : 'No events found in Apple Calendar for the selected date range.'),
     };
   } catch (err) {
@@ -280,8 +311,8 @@ end tell
       error: isPermissionError ? 'macOS Permission Required' : 'Calendar Scrape Failed',
       isPermissionError,
       details: isPermissionError
-        ? 'macOS blocked Task Flow from accessing Calendar (Error -1743). Please open System Settings > Privacy & Security > Automation and enable Calendar for Task Flow.'
-        : `Could not access Apple Calendar (${errMsg}). Ensure Calendar.app is open.`,
+        ? 'macOS blocked Task Flow from accessing Calendar (Error -1743). Please open System Settings > Privacy & Security > Automation and enable Calendar.'
+        : `Could not access Apple Calendar: ${errMsg}.`,
     };
   }
 }
@@ -320,6 +351,7 @@ async function openPrivacySettings(target = 'automation') {
 module.exports = {
   scrapeAppleCalendarEvents,
   checkCalendarPermission,
+  getAvailableCalendars,
   openAppleCalendar,
   openPrivacySettings,
 };

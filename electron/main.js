@@ -16,48 +16,19 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
-// Initialize Persistent Stores
-const tasksStore = new Store('tasks.json', {
-  tasks: [
-    {
-      id: 'task-1',
-      title: 'Q4 Product Roadmap Review',
-      description: 'Review cross-functional milestones, deliverables, and deadlines with team.',
-      status: 'in_progress',
-      priority: 'urgent',
-      category: 'Work',
-      tags: ['Strategy', 'Planning'],
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString().split('T')[0],
-      startTime: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString().split('T')[0] + 'T10:00:00',
-      endTime: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString().split('T')[0] + 'T11:30:00',
-      estimatedMinutes: 90,
-      actualMinutes: 45,
-      subtasks: [
-        { id: 'sub-1', title: 'Prepare slide deck', completed: true },
-        { id: 'sub-2', title: 'Gather engineering estimates', completed: false }
-      ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'task-2',
-      title: 'Database Performance Optimization',
-      description: 'Analyze slow query logs, add composite indexes, and benchmark response times.',
-      status: 'todo',
-      priority: 'high',
-      category: 'Development',
-      tags: ['Backend', 'SQL'],
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString().split('T')[0],
-      startTime: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString().split('T')[0] + 'T14:00:00',
-      endTime: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString().split('T')[0] + 'T16:00:00',
-      estimatedMinutes: 120,
-      actualMinutes: 0,
-      subtasks: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ]
-});
+// Initialize Persistent Stores (No sample data - clean user storage)
+const tasksStore = new Store('tasks.json', { tasks: [] });
+
+// Strip legacy sample tasks from store if present
+try {
+  const current = tasksStore.get('tasks') || [];
+  const cleaned = current.filter(t => t.id !== 'task-1' && t.id !== 'task-2' && t.title !== 'Q4 Product Roadmap Review');
+  if (cleaned.length !== current.length) {
+    tasksStore.set('tasks', cleaned);
+  }
+} catch (e) {
+  // Ignore
+}
 
 const settingsStore = new Store('settings.json', {
   autoScrapeIntervalMinutes: 30,
