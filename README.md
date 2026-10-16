@@ -1,4 +1,4 @@
-# Task Tracker Pro 🗓️⚡
+# Task Flow ⚡🗓️
 
 An advanced desktop task tracking system built with **Electron + React + Tailwind CSS**, featuring a seamless hybrid integration with the native **macOS Calendar (iCal)** app.
 
