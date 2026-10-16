@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTasks } from '../context/TaskContext';
 import { Search, Plus, Calendar, RefreshCw, Radio, Sparkles } from 'lucide-react';
+import appIcon from '../assets/icon.png';
 
 export default function TitleBar() {
   const {
@@ -21,11 +22,13 @@ export default function TitleBar() {
       {/* Left traffic lights space & branding */}
       <div className="flex items-center gap-3 pl-18 titlebar-no-drag">
         <div className="flex items-center gap-2.5">
-          <img
-            src="/icon.png"
-            alt="Task Flow Icon"
-            className="w-7 h-7 object-contain drop-shadow-md select-none pointer-events-none"
-          />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 p-1 border border-slate-800 shadow-sm flex items-center justify-center flex-shrink-0">
+            <img
+              src={appIcon}
+              alt="Task Flow Icon"
+              className="w-full h-full object-contain select-none pointer-events-none drop-shadow"
+            />
+          </div>
           <span className="font-bold text-sm tracking-tight text-slate-100 flex items-center gap-1.5">
             Task Flow
           </span>

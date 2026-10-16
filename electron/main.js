@@ -37,13 +37,16 @@ const settingsStore = new Store('settings.json', {
 });
 
 function createMainWindow() {
+  const appIconPath = path.join(__dirname, '../public/icon.png');
+  const appIconImage = fs.existsSync(appIconPath) ? nativeImage.createFromPath(appIconPath) : null;
+
   mainWindow = new BrowserWindow({
     width: 1240,
     height: 820,
     minWidth: 960,
     minHeight: 650,
     title: 'Task Flow',
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: appIconImage || appIconPath,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     backgroundColor: '#0f172a',
@@ -195,9 +198,24 @@ function createTray() {
 app.whenReady().then(async () => {
   // Set macOS Dock Icon
   if (process.platform === 'darwin' && app.dock) {
-    const iconPath = path.join(__dirname, '../public/icon.png');
-    if (fs.existsSync(iconPath)) {
-      app.dock.setIcon(iconPath);
+    const candidatePaths = [
+      path.join(__dirname, '../build/icon.png'),
+      path.join(__dirname, '../public/icon.png'),
+      path.join(__dirname, '../assets/icon.png'),
+      path.join(__dirname, '../build/icon.icns'),
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const dockImg = nativeImage.createFromPath(p);
+          if (!dockImg.isEmpty()) {
+            app.dock.setIcon(dockImg);
+            break;
+          }
+        } catch (e) {
+          console.warn('Failed to set dock icon from', p, e.message);
+        }
+      }
     }
   }
 
