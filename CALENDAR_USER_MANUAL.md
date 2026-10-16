@@ -1,104 +1,73 @@
 # Task Flow: Apple Calendar User Manual & Integration Guide 🗓️⚡
 
-This manual explains how **Task Flow** connects with your native macOS Apple Calendar (`Calendar.app`), how events are synchronized, and how data integrity is strictly enforced.
+Welcome to the **Task Flow Calendar User Manual**. Task Flow integrates directly with your macOS native Apple Calendar (`Calendar.app`) through a **safe, strictly read-only event scraping engine**.
 
 ---
 
-## 🛡️ Core Data Flow & Integrity Policy
+## 🛡️ Strict Security & Data Policy
 
-Task Flow uses an **authoritative, single-source-of-truth architecture**:
+Task Flow is deliberately engineered with a **zero-write, read-only scraper architecture**:
 
-1. **Task Flow is the Source of Truth**:
-   - All tasks, subtask checklists, status (`To Do`, `In Progress`, `In Review`, `Completed`), priorities, and notes belong to Task Flow.
-   - When tasks are scheduled, Task Flow automatically pushes them into Apple Calendar so you can see them on your timeline alongside your daily routine.
+1. **Pure Read-Only Scraping**:
+   - Task Flow **NEVER creates, modifies, updates, or deletes** any events in your Apple Calendar.
+   - Your Apple Calendar remains untouched, secure, and completely independent.
 
-2. **Scraping NEW Data Only**:
-   - The system can scrape your Apple Calendar to discover **new events** (e.g. meetings, appointments, personal reminders added directly in Apple Calendar).
-   - Any newly discovered event is automatically imported into Task Flow as a new task with its due date, time, and title.
+2. **Scrapes NEW Events Only**:
+   - The scraper scans your local Apple Calendar for **new external events** (e.g. meetings, doctor appointments, or personal events added in Calendar.app).
+   - Any newly discovered event is safely imported into Task Flow as a new task in your **To Do** backlog, carrying over the event title, scheduled date/time, and notes.
 
-3. **Calendar Edits are NOT Accepted**:
-   - If an existing Task Flow event is edited, renamed, moved, or altered inside Apple Calendar, **Task Flow intentionally ignores and rejects those edits**.
-   - **Why?** Apple Calendar only stores basic event strings and lacks Task Flow's subtask checklists, Kanban stages, and custom priority metadata. Rejecting external edits protects your tasks from accidental data loss, schema corruption, or conflicting modifications.
-   - To update a task's title, time, or details, always make the change directly inside **Task Flow**. It will immediately push the updated event to Apple Calendar.
+3. **Calendar Edits are Strictly Rejected**:
+   - If an event is edited, renamed, or shifted inside Apple Calendar after being imported, **Task Flow intentionally ignores and rejects those external edits**.
+   - **Why?** Task Flow is your single source of truth for task progress, checklists, priorities, Pomodoro focus time, and Kanban workflow stages. Discarding external edits prevents accidental data loss, unexpected schema conflicts, and status resets.
 
----
-
-## 🚀 Step-by-Step Connection Instructions
-
-### Method 1: 1-Click Connect (Recommended)
-
-1. Open **Task Flow**.
-2. Click **"1-Click Connect Calendar"** in the left sidebar or open the **Calendar Hub** from the top header.
-3. macOS Apple Calendar will automatically launch and display a subscription prompt:
-   > *"Subscribe to calendar: Task Flow?"*
-4. Click **Subscribe**.
-5. In the calendar settings dialog:
-   - **Name**: `Task Flow`
-   - **Location**: Select **iCloud** (to automatically sync tasks to your iPhone, iPad, and Apple Watch!).
-   - **Auto-refresh**: Choose **Every 15 minutes** or **Every hour**.
-   - **Remove Alerts**: Uncheck this if you wish to receive native macOS/iOS task reminder alarms.
-6. Click **OK**. Your calendar is now linked!
+4. **No Subscriptions / No WebCal**:
+   - Task Flow does **not** host or require any WebCal server or external subscription links. All event discovery happens directly on your Mac using native macOS AppleScript queries.
 
 ---
 
-### Method 2: Direct AppleScript Sync (Push Tasks)
+## 🚀 How to Use the Calendar Scraper
 
-1. Click **"Sync Calendar"** in the top bar or menu bar tray.
-2. If macOS prompts:
-   > *"Task Flow wants to access Calendars"*
-   Click **Allow / OK**.
-3. Task Flow will automatically create a dedicated **"Task Flow"** calendar in Apple Calendar and push all your scheduled tasks, subtasks, notes, and alarms.
+### Method 1: Instant Scrape from the Top Bar
+1. In the Task Flow header (top right), click the **"Scrape Calendar"** button (or press `⌘ + Shift + C`).
+2. Task Flow will immediately query Apple Calendar for events within a rolling 30-day window.
+3. Any newly detected events will appear at the top of your **To Do** list.
 
----
+### Method 2: Calendar Scraper Modal
+1. Click **"Calendar Scraper"** in the left sidebar or the calendar status badge in the header.
+2. The **Calendar Scraper & Manual** window will open.
+3. Click **"Scrape Calendar Now"** to view real-time status and see how many new events were imported.
+4. You can also click **"Open Apple Calendar"** to quickly view or add events in Calendar.app.
 
-### Method 3: Scraping New Events from Apple Calendar
-
-1. Create any event in Apple Calendar (for example: *"10:00 AM Client Meeting"* or *"Doctor Appointment"*).
-2. In Task Flow, open **Calendar Hub** and click **"Scrape New Events from Calendar"**.
-3. Task Flow scans your Apple Calendar for new events created within a rolling window:
-   - Events without an existing Task Flow ID are imported as new tasks in your **To Do** list.
-   - Any modifications made in Apple Calendar to existing tasks are safely filtered out and ignored.
-
----
-
-### Method 4: Standalone .ics Export
-
-1. Open **Calendar Hub** and click **"Export iCalendar (.ics)"**.
-2. Save the `.ics` file anywhere on your Mac.
-3. Double-click the file to import tasks into Apple Calendar, Google Calendar, or Outlook.
+### Method 3: macOS System Menu & Tray
+- You can trigger a scrape anytime from the macOS menu bar: **Calendar** → **Scrape Events from Apple Calendar**.
+- You can also click the Task Flow tray icon in your Mac's top right menu bar and select **Scrape Apple Calendar Events**.
 
 ---
 
-## 📱 Mobile Sync (iPhone, iPad & Apple Watch)
+## 🔒 macOS Permissions Guide
 
-To see your Task Flow schedule on your mobile devices:
-1. When subscribing to the WebCal feed on your Mac, set **Location** to **iCloud** (instead of "On My Mac").
-2. Your iPhone and iPad will automatically sync the **Task Flow** calendar through your iCloud account!
+Because Task Flow communicates with Apple Calendar via native macOS AppleScript, macOS may ask for your permission when you first scrape.
 
----
+### Granting Permission:
+1. When prompted by macOS:
+   > *"Task Flow wants access to control 'Calendar'"* or *"Task Flow wants to access Calendars"*
+2. Click **OK** or **Allow**.
 
-## 🔧 macOS Permissions & Troubleshooting
-
-### If AppleScript reports a permission error:
+### If you need to verify or reset permissions manually:
 1. Open macOS **System Settings** (`⌘ + Space` → `System Settings`).
-2. Go to **Privacy & Security** → **Calendars**.
-3. Locate **Task Flow** (or **Electron**) and toggle the switch to **ON**.
-4. Restart Task Flow:
-   ```bash
-   npm start
-   ```
-
-### If you prefer not to grant AppleScript permissions:
-- Use **Method 1 (1-Click WebCal Subscription)**. WebCal is a standard macOS protocol that connects without requiring any accessibility or scripting permissions.
+2. Go to **Privacy & Security** → **Automation** (or **Calendars**).
+3. Find **Task Flow** (or **Electron**) and ensure the toggle for **Calendar** is switched **ON**.
+4. Relaunch Task Flow.
 
 ---
 
-## 📋 Summary Table
+## 📋 Integration Feature Matrix
 
-| Action | Supported? | Description |
+| Feature | Supported? | Design Rationale |
 | :--- | :---: | :--- |
-| **Push tasks from Task Flow → Apple Calendar** | ✅ **Yes** | Automatic with alarms, subtasks & priority notes. |
-| **Scrape NEW events from Apple Calendar → Task Flow** | ✅ **Yes** | Imports external meetings/appointments as tasks. |
-| **Accept edits made in Apple Calendar → Task Flow** | ❌ **No (Rejected)** | Strict policy: rejects external edits to protect task state. |
-| **Sync across iPhone / iPad / Apple Watch** | ✅ **Yes** | Via iCloud calendar subscription. |
-| **Offline operation** | ✅ **Yes** | Local SQLite/JSON store and local WebCal feed. |
+| **Scrape NEW events from Apple Calendar** | ✅ **Yes** | Imports external meetings and appointments into your backlog. |
+| **Modify or edit events in Apple Calendar** | ❌ **No (Blocked)** | Safeguards your Apple Calendar from unwanted changes. |
+| **Accept external edits to existing tasks** | ❌ **No (Rejected)** | Task Flow is the sole authority for task state and checklists. |
+| **Delete events from Apple Calendar** | ❌ **No (Blocked)** | Strictly zero write permissions or destructive commands. |
+| **WebCal subscription feed** | ❌ **No (Removed)** | Native direct scraping eliminates cloud or port errors. |
+| **100% Offline & Private** | ✅ **Yes** | All data remains strictly local on your Mac. |

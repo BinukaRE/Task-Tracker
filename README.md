@@ -8,16 +8,17 @@ An advanced desktop task tracking system built with **Electron + React + Tailwin
 
 - **macOS Desktop Integration**:
   - Native frameless design with inset traffic-light controls and glassmorphism styling.
-  - macOS Menu Bar / System Tray icon with quick status, quick task launcher, and calendar sync commands.
-  - Global hotkeys (e.g. `⌘ + Shift + T` to quick add tasks from anywhere).
-- **Hybrid macOS Calendar Link**:
-  - **Direct AppleScript Sync**: Automatically manages a dedicated `"Task Tracker Pro"` calendar in Apple Calendar (`Calendar.app`), creating and updating events with titles, notes, subtask checklists, priorities, and customizable alarm reminders (0, 5, 15, 30, 60 minutes before).
-  - **Live WebCal Subscription (`webcal://`)**: Integrated local background server serving a dynamic RFC 5545 iCalendar feed (`webcal://localhost:52884/calendar.ics`). Subscribing with 1 click allows auto-sync across your Mac, iPad, and iPhone via iCloud Calendar.
-  - **Standalone .ics Export**: 1-click export of your full task schedule into standard `.ics` files.
+  - macOS Menu Bar / System Tray icon with quick status, quick task launcher, and calendar scrape commands.
+  - Global hotkeys (e.g. `⌘ + Shift + T` to quick add tasks, `⌘ + Shift + C` to scrape calendar).
+- **Read-Only Apple Calendar Scraper**:
+  - **Zero-Write Safety**: Never creates, modifies, or deletes any events in Apple Calendar.
+  - **Scrapes New Events Only**: Discovers external meetings and events from Apple Calendar and brings them into your To Do list.
+  - **Rejects External Edits**: Preserves your checklists, subtasks, and Kanban stages by ignoring edits made in Apple Calendar to existing tasks.
+  - **No Subscription Server**: Direct native AppleScript scraping without webcal port conflicts or iCloud routing errors.
 - **Multiple Task Management Views**:
   - **Kanban Board**: Drag/move tasks between *To Do*, *In Progress*, *In Review*, and *Completed* columns with priority glow indicators, subtask progress meters, and calendar sync status.
   - **List / Table View**: Fast table with quick inline task creation, multi-attribute sorting (due date, priority, title), and category filters.
-  - **Calendar View**: Interactive Month and Day agenda view plotting scheduled tasks with their due times and calendar sync flags.
+  - **Calendar View**: Interactive Month and Day agenda view plotting scheduled tasks with their due times.
   - **Pomodoro Focus Timer**: Integrated 25/5/15 minute focus timer linked to any selected task, auto-tracking actual focus time and subtask completion with ambient audio alerts.
   - **Analytics & Insights**: Live productivity metrics, completion rates, priority distribution, and estimation accuracy.
 - **Local-First & Offline**:
@@ -56,25 +57,14 @@ npm start
 
 ---
 
-## 🔗 How the Local Calendar Link Works
+## 🔗 How the Read-Only Calendar Scraper Works
 
-Task Flow provides a robust calendar integration engine with an **authoritative data integrity policy**:
+Task Flow provides a safe calendar integration with an **authoritative data integrity policy**:
 - **Scrapes NEW Events Only**: You can scrape new events from Apple Calendar into Task Flow with 1 click.
 - **Strictly Rejects Calendar Edits**: Any external edits made to existing tasks inside Apple Calendar are discarded to keep your subtasks, status, and priorities uncorrupted.
+- **Pure Read-Only**: Task Flow will never edit, move, or delete any event in your Apple Calendar.
 
 For comprehensive instructions, see the complete [**Calendar User Manual (CALENDAR_USER_MANUAL.md)**](file:///Users/binuka/Documents/GitHub/Task%20Tracker/CALENDAR_USER_MANUAL.md).
-
-### Method 1: 1-Click Connect Calendar (Recommended WebCal)
-1. Click **"1-Click Connect Calendar"** in the sidebar or Calendar Hub.
-2. Apple Calendar opens asking to subscribe to `webcal://localhost:52884/calendar.ics`.
-3. Set location to **iCloud** to sync tasks across your Mac, iPhone, and iPad.
-
-### Method 2: Direct AppleScript Sync (Push Tasks)
-1. Click **"Sync Calendar"** to push tasks directly into a dedicated **"Task Flow"** calendar in Apple Calendar with alarms and notes.
-
-### Method 3: Scrape New Calendar Events
-1. In the Calendar Hub, click **"Scrape New Events from Calendar"**.
-2. Brand-new external events are imported as tasks. Existing tasks are protected from modifications.
 
 ---
 

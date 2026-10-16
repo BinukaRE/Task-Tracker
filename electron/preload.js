@@ -9,15 +9,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
 
-  // Local Apple Calendar Integration
-  syncAppleCalendar: () => ipcRenderer.invoke('calendar:syncApple'),
-  connectCalendar: () => ipcRenderer.invoke('calendar:connect'),
-  importIcsToCalendar: () => ipcRenderer.invoke('calendar:importIcs'),
-  scrapeNewCalendarEvents: () => ipcRenderer.invoke('calendar:scrapeNewEvents'),
+  // Read-Only Apple Calendar Scraper
+  scrapeCalendarEvents: (options) => ipcRenderer.invoke('calendar:scrape', options),
   openAppleCalendar: () => ipcRenderer.invoke('calendar:openApple'),
-  getCalendarServerInfo: () => ipcRenderer.invoke('calendar:getServerInfo'),
-  subscribeWebcal: () => ipcRenderer.invoke('calendar:subscribeWebcal'),
-  exportIcsFile: () => ipcRenderer.invoke('calendar:exportIcs'),
 
   // Window Controls
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
@@ -33,9 +27,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('action:quick-task', subscription);
     return () => ipcRenderer.removeListener('action:quick-task', subscription);
   },
-  onSyncTriggered: (callback) => {
+  onScrapeTriggered: (callback) => {
     const subscription = (_event, value) => callback(value);
-    ipcRenderer.on('action:trigger-sync', subscription);
-    return () => ipcRenderer.removeListener('action:trigger-sync', subscription);
+    ipcRenderer.on('action:trigger-scrape', subscription);
+    return () => ipcRenderer.removeListener('action:trigger-scrape', subscription);
+  },
+  onScraped: (callback) => {
+    const subscription = (_event, value) => callback(value);
+    ipcRenderer.on('action:scraped', subscription);
+    return () => ipcRenderer.removeListener('action:scraped', subscription);
   },
 });

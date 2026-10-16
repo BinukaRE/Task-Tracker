@@ -10,7 +10,6 @@ export const useTasks = () => {
   return context;
 };
 
-// Check if running inside Electron with electronAPI available
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
 
 export const TaskProvider = ({ children }) => {
@@ -19,7 +18,7 @@ export const TaskProvider = ({ children }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
+  const [modalMode, setModalMode] = useState('create');
   const [currentView, setCurrentView] = useState('kanban'); // 'kanban' | 'list' | 'calendar' | 'pomodoro' | 'analytics'
   
   // Filtering & Search
@@ -28,15 +27,11 @@ export const TaskProvider = ({ children }) => {
   const [selectedPriority, setSelectedPriority] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
-  // Calendar Sync State
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [syncNotice, setSyncNotice] = useState(null);
-  const [serverInfo, setServerInfo] = useState({
-    port: 52884,
-    webcalUrl: 'webcal://localhost:52884/calendar.ics',
-    httpUrl: 'http://localhost:52884/calendar.ics',
-  });
+  // Calendar Scraper State (Strict Read-Only)
+  const [isScraping, setIsScraping] = useState(false);
+  const [lastScrapeTime, setLastScrapeTime] = useState(null);
+  const [scrapeNotice, setScrapeNotice] = useState(null);
+  const [scrapeStats, setScrapeStats] = useState({ totalScraped: 0, lastCount: 0 });
 
   // Pomodoro Focus state
   const [activePomodoroTaskId, setActivePomodoroTaskId] = useState(null);
@@ -48,15 +43,11 @@ export const TaskProvider = ({ children }) => {
         if (isElectron) {
           const loadedTasks = await window.electronAPI.getTasks();
           setTasks(loadedTasks || []);
-          const info = await window.electronAPI.getCalendarServerInfo();
-          if (info) setServerInfo(info);
         } else {
-          // Web fallback
-          const local = localStorage.getItem('tasks_pro');
+          const local = localStorage.getItem('task_flow_tasks');
           if (local) {
             setTasks(JSON.parse(local));
           } else {
-            // Sample initial data
             setTasks([
               {
                 id: 'task-1',
@@ -73,12 +64,8 @@ export const TaskProvider = ({ children }) => {
                 actualMinutes: 45,
                 subtasks: [
                   { id: 'sub-1', title: 'Prepare slide deck', completed: true },
-                  { id: 'sub-2', title: 'Gather engineering estimates', completed: false },
-                  { id: 'sub-3', title: 'Share agenda with attendees', completed: false }
+                  { id: 'sub-2', title: 'Gather engineering estimates', completed: false }
                 ],
-                syncWithCalendar: true,
-                reminderMinutesBefore: 15,
-                color: '#6366f1',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               },
@@ -95,12 +82,7 @@ export const TaskProvider = ({ children }) => {
                 endTime: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString().split('T')[0] + 'T16:00:00',
                 estimatedMinutes: 120,
                 actualMinutes: 0,
-                subtasks: [
-                  { id: 'sub-4', title: 'Enable slow query logging', completed: false }
-                ],
-                syncWithCalendar: true,
-                reminderMinutesBefore: 30,
-                color: '#ec4899',
+                subtasks: [],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               }
@@ -116,17 +98,22 @@ export const TaskProvider = ({ children }) => {
 
     loadData();
 
-    // Listen for tray quick task action
     if (isElectron) {
       const unsubQuick = window.electronAPI.onQuickTaskTriggered(() => {
         openCreateModal();
       });
-      const unsubSync = window.electronAPI.onSyncTriggered(() => {
-        syncAppleCalendar();
+      const unsubScrape = window.electronAPI.onScrapeTriggered(() => {
+        scrapeCalendarEvents();
+      });
+      const unsubScraped = window.electronAPI.onScraped((res) => {
+        if (res.newTasks && res.newTasks.length > 0) {
+          setTasks((prev) => [...res.newTasks, ...prev]);
+        }
       });
       return () => {
         if (unsubQuick) unsubQuick();
-        if (unsubSync) unsubSync();
+        if (unsubScrape) unsubScrape();
+        if (unsubScraped) unsubScraped();
       };
     }
   }, []);
@@ -137,7 +124,7 @@ export const TaskProvider = ({ children }) => {
     if (isElectron) {
       await window.electronAPI.saveTasks(updatedTasks);
     } else {
-      localStorage.setItem('tasks_pro', JSON.stringify(updatedTasks));
+      localStorage.setItem('task_flow_tasks', JSON.stringify(updatedTasks));
     }
   };
 
@@ -150,8 +137,6 @@ export const TaskProvider = ({ children }) => {
       actualMinutes: 0,
       subtasks: [],
       tags: [],
-      syncWithCalendar: true,
-      reminderMinutesBefore: 15,
       status: 'todo',
       priority: 'medium',
       category: 'Work',
@@ -159,16 +144,10 @@ export const TaskProvider = ({ children }) => {
     };
     const updated = [newTask, ...tasks];
     await persistTasks(updated);
-
-    // If task has calendar sync enabled, trigger sync
-    if (isElectron && newTask.syncWithCalendar && newTask.dueDate) {
-      syncAppleCalendar(updated);
-    }
-
     return newTask;
   };
 
-  // Update Task
+  // Update Task (ONLY updates Task Flow tasks locally, NEVER touches Apple Calendar)
   const updateTask = async (id, updates) => {
     const updated = tasks.map((t) => {
       if (t.id === id) {
@@ -181,25 +160,15 @@ export const TaskProvider = ({ children }) => {
       return t;
     });
     await persistTasks(updated);
-
-    if (isElectron) {
-      const target = updated.find(t => t.id === id);
-      if (target && target.syncWithCalendar) {
-        syncAppleCalendar(updated);
-      }
-    }
   };
 
-  // Delete Task
+  // Delete Task (ONLY deletes from Task Flow, NEVER deletes from Apple Calendar)
   const deleteTask = async (id) => {
     const updated = tasks.filter((t) => t.id !== id);
     await persistTasks(updated);
-    if (isElectron) {
-      syncAppleCalendar(updated);
-    }
   };
 
-  // Toggle Task Status (cycle or mark done)
+  // Toggle Task Status
   const toggleTaskStatus = async (id) => {
     const current = tasks.find((t) => t.id === id);
     if (!current) return;
@@ -219,7 +188,6 @@ export const TaskProvider = ({ children }) => {
       return s;
     });
 
-    // If all subtasks are done, offer to complete the task
     const allDone = subtasks.length > 0 && subtasks.every(s => s.completed);
     await updateTask(taskId, {
       subtasks,
@@ -235,28 +203,56 @@ export const TaskProvider = ({ children }) => {
     await updateTask(taskId, { actualMinutes: actual });
   };
 
-  // Synchronize with Local Apple Calendar
-  const syncAppleCalendar = async (customTasksList) => {
+  /**
+   * PURE READ-ONLY SCRAPING:
+   * Scrapes events from Apple Calendar into Task Flow.
+   * STRICT POLICY:
+   * - Never creates, modifies, or deletes events in Apple Calendar.
+   * - Rejects any edits made in Apple Calendar to existing tasks.
+   */
+  const scrapeCalendarEvents = async (options = {}) => {
     if (!isElectron) {
-      setSyncNotice({ type: 'warning', message: 'Direct Apple Calendar sync is available in macOS Desktop app mode.' });
+      setScrapeNotice({ type: 'warning', message: 'Calendar scraping requires the macOS desktop app.' });
       return;
     }
 
-    setIsSyncing(true);
+    setIsScraping(true);
     try {
-      const res = await window.electronAPI.syncAppleCalendar();
-      setLastSyncTime(new Date());
+      const res = await window.electronAPI.scrapeCalendarEvents(options);
+      setLastScrapeTime(new Date());
+
       if (res.success) {
-        setSyncNotice({ type: 'success', message: res.message || 'Synchronized with macOS Calendar!' });
+        if (res.newTasks && res.newTasks.length > 0) {
+          setTasks((prev) => [...res.newTasks, ...prev]);
+          setScrapeStats(prev => ({
+            totalScraped: prev.totalScraped + res.newTasks.length,
+            lastCount: res.newTasks.length,
+          }));
+          setScrapeNotice({
+            type: 'success',
+            message: res.message,
+            details: 'Read-only: Apple Calendar was NOT modified.'
+          });
+        } else {
+          setScrapeNotice({
+            type: 'info',
+            message: res.message || 'No new events found in Apple Calendar.',
+            details: 'Existing tasks remain protected and unedited.'
+          });
+        }
       } else {
-        setSyncNotice({ type: 'warning', message: res.error || 'Calendar notice', details: res.details });
+        setScrapeNotice({
+          type: 'warning',
+          message: res.error || 'Scraper notice',
+          details: res.details
+        });
       }
     } catch (err) {
-      console.error('Error syncing calendar:', err);
-      setSyncNotice({ type: 'error', message: 'Failed to communicate with macOS Calendar app.' });
+      console.error('Error scraping calendar:', err);
+      setScrapeNotice({ type: 'error', message: 'Failed to scrape Apple Calendar.' });
     } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncNotice(null), 6000);
+      setIsScraping(false);
+      setTimeout(() => setScrapeNotice(null), 6000);
     }
   };
 
@@ -264,114 +260,6 @@ export const TaskProvider = ({ children }) => {
   const openAppleCalendar = async () => {
     if (isElectron) {
       await window.electronAPI.openAppleCalendar();
-    }
-  };
-
-  // 1-Click Connect Calendar
-  const connectCalendar = async () => {
-    if (!isElectron) {
-      window.open(serverInfo.webcalUrl, '_blank');
-      return;
-    }
-
-    setIsSyncing(true);
-    try {
-      const res = await window.electronAPI.connectCalendar();
-      setLastSyncTime(new Date());
-      if (res.success) {
-        setSyncNotice({ type: 'success', message: res.message || 'Connected to Apple Calendar!' });
-      } else {
-        setSyncNotice({ type: 'warning', message: res.error || 'Calendar notice' });
-      }
-    } catch (err) {
-      console.error('Error connecting calendar:', err);
-      setSyncNotice({ type: 'error', message: 'Failed to connect with macOS Calendar.' });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncNotice(null), 6000);
-    }
-  };
-
-  // 1-Click Native Import into Apple Calendar (Bypasses network and WebCal subscription issues completely)
-  const importIcsToCalendar = async () => {
-    if (!isElectron) {
-      window.open(serverInfo.downloadUrl || 'http://localhost:52884/download.ics', '_blank');
-      return;
-    }
-
-    setIsSyncing(true);
-    try {
-      const res = await window.electronAPI.importIcsToCalendar();
-      if (res.success) {
-        setSyncNotice({ type: 'success', message: res.message || 'Opened in Apple Calendar! Click Add to import.' });
-      } else {
-        setSyncNotice({ type: 'warning', message: res.error || 'Notice' });
-      }
-    } catch (err) {
-      console.error('Error importing to calendar:', err);
-      setSyncNotice({ type: 'error', message: 'Failed to open calendar import.' });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncNotice(null), 6000);
-    }
-  };
-
-  // Scrape ONLY new events from Apple Calendar (strictly rejecting edits to existing tasks)
-  const scrapeNewCalendarEvents = async () => {
-    if (!isElectron) {
-      setSyncNotice({ type: 'warning', message: 'Calendar scraping is available in macOS Desktop app mode.' });
-      return;
-    }
-
-    setIsSyncing(true);
-    try {
-      const res = await window.electronAPI.scrapeNewCalendarEvents();
-      if (res.success) {
-        if (res.newTasks && res.newTasks.length > 0) {
-          setTasks((prev) => [...res.newTasks, ...prev]);
-          setSyncNotice({
-            type: 'success',
-            message: res.message,
-            details: 'Existing tasks remain protected and locked against calendar edits.'
-          });
-        } else {
-          setSyncNotice({
-            type: 'info',
-            message: res.message || 'No new events found in Apple Calendar.',
-            details: 'Any external edits to existing tasks were ignored.'
-          });
-        }
-      } else {
-        setSyncNotice({ type: 'warning', message: res.error || 'Scraping notice', details: res.details });
-      }
-    } catch (err) {
-      console.error('Error scraping calendar:', err);
-      setSyncNotice({ type: 'error', message: 'Failed to scrape events from Apple Calendar.' });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncNotice(null), 6000);
-    }
-  };
-
-  // Subscribe via WebCal
-  const subscribeWebcal = async () => {
-    if (isElectron) {
-      await window.electronAPI.subscribeWebcal();
-    } else {
-      window.open(serverInfo.webcalUrl, '_blank');
-    }
-  };
-
-  // Export .ics
-  const exportIcs = async () => {
-    if (isElectron) {
-      const res = await window.electronAPI.exportIcsFile();
-      if (res.success) {
-        setSyncNotice({ type: 'success', message: `Exported to ${res.filePath}` });
-        setTimeout(() => setSyncNotice(null), 4000);
-      }
-    } else {
-      window.open(serverInfo.downloadUrl || 'http://localhost:52884/download.ics', '_blank');
     }
   };
 
@@ -389,8 +277,6 @@ export const TaskProvider = ({ children }) => {
       endTime: '',
       estimatedMinutes: 60,
       subtasks: [],
-      syncWithCalendar: true,
-      reminderMinutesBefore: 15,
       ...preset,
     });
     setModalMode('create');
@@ -403,7 +289,6 @@ export const TaskProvider = ({ children }) => {
     setIsTaskModalOpen(true);
   };
 
-  // Categories list derived from tasks + defaults
   const categories = ['All', ...new Set(['Work', 'Development', 'Design', 'Personal', ...tasks.map(t => t.category).filter(Boolean)])];
 
   // Filtered Tasks
@@ -453,18 +338,13 @@ export const TaskProvider = ({ children }) => {
         selectedStatus,
         setSelectedStatus,
         categories,
-        // Calendar
-        isSyncing,
-        lastSyncTime,
-        syncNotice,
-        serverInfo,
-        connectCalendar,
-        importIcsToCalendar,
-        scrapeNewCalendarEvents,
-        syncAppleCalendar,
+        // Pure Read-Only Calendar Scraper
+        isScraping,
+        lastScrapeTime,
+        scrapeNotice,
+        scrapeStats,
+        scrapeCalendarEvents,
         openAppleCalendar,
-        subscribeWebcal,
-        exportIcs,
         // Pomodoro
         activePomodoroTaskId,
         setActivePomodoroTaskId,

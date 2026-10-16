@@ -7,8 +7,8 @@ export default function TitleBar() {
     searchQuery,
     setSearchQuery,
     openCreateModal,
-    syncAppleCalendar,
-    isSyncing,
+    scrapeCalendarEvents,
+    isScraping,
     setIsCalendarModalOpen,
     tasks,
   } = useTasks();
@@ -60,30 +60,30 @@ export default function TitleBar() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2 titlebar-no-drag">
-        {/* Calendar Sync Menu & Button */}
+        {/* Scrape Calendar Button */}
         <button
-          onClick={() => syncAppleCalendar()}
-          disabled={isSyncing}
+          onClick={() => scrapeCalendarEvents()}
+          disabled={isScraping}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700/60 bg-slate-900/80 hover:bg-slate-800 text-slate-200 transition-all ${
-            isSyncing ? 'opacity-70 cursor-wait' : ''
+            isScraping ? 'opacity-70 cursor-wait' : ''
           }`}
-          title="Sync directly with macOS Calendar"
+          title="Scrape new events from Apple Calendar (Read-Only, never edits calendar)"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-indigo-400 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Sync Calendar</span>
+          <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isScraping ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Scrape Calendar</span>
         </button>
 
-        {/* Calendar Hub Modal Launcher */}
+        {/* Calendar Scraper Hub Modal Launcher */}
         <button
           onClick={() => setIsCalendarModalOpen(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 transition-all"
-          title="Open Calendar Integration Hub"
+          title="Open Calendar Event Scraper"
         >
           <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden sm:inline">Calendar Hub</span>
+          <span className="hidden sm:inline">Calendar Scraper</span>
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
           </span>
         </button>
 
