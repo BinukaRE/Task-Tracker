@@ -44,20 +44,30 @@ Task Flow is deliberately engineered with a **zero-write, read-only scraper arch
 
 ---
 
-## 🔒 macOS Permissions Guide
+## 🔒 macOS Permissions & Troubleshooting ("System Didn't See Events")
 
-Because Task Flow communicates with Apple Calendar via native macOS AppleScript, macOS may ask for your permission when you first scrape.
+Because Task Flow communicates with Apple Calendar via native macOS AppleScript, macOS restricts access behind the **Automation (Apple Events)** security layer.
 
-### Granting Permission:
-1. When prompted by macOS:
-   > *"Task Flow wants access to control 'Calendar'"* or *"Task Flow wants to access Calendars"*
-2. Click **OK** or **Allow**.
+### Why the System Might "Not See" Events:
+If Task Flow displays a warning or fails to see your events, macOS is blocking AppleScript communication with **Error -1743: Not authorized to send Apple events to Calendar**.
 
-### If you need to verify or reset permissions manually:
-1. Open macOS **System Settings** (`⌘ + Space` → `System Settings`).
-2. Go to **Privacy & Security** → **Automation** (or **Calendars**).
-3. Find **Task Flow** (or **Electron**) and ensure the toggle for **Calendar** is switched **ON**.
-4. Relaunch Task Flow.
+### 1-Click Fix via App:
+1. In Task Flow, open **Calendar Scraper** (or view the toast notification).
+2. Click the amber **"Open macOS Settings"** button.
+3. macOS **System Settings > Privacy & Security > Automation** will immediately open.
+4. Under **Task Flow** (or **Electron**), switch the **Calendar** toggle to **ON**.
+5. Return to Task Flow and click **"Scrape Calendar Events Now"**.
+
+### Manual Fix in System Settings:
+1. Open macOS **System Settings** (`⌘ + Space` → type `System Settings`).
+2. Navigate to **Privacy & Security** → **Automation**.
+3. Locate **Task Flow** (or **Electron**).
+4. Turn the **Calendar** toggle **ON**.
+5. *(Optional)* Under **Privacy & Security** → **Calendars**, ensure access is allowed.
+6. Click **Scrape Calendar** in Task Flow!
+
+### Date Range Considerations:
+The scraper searches from **7 days in the past** up to your chosen range (e.g. 30 days, 90 days, or 1 year ahead). If your events are further in the future or past, increase the **Scrape Range** dropdown in the Calendar Scraper modal.
 
 ---
 

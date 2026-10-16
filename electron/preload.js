@@ -11,7 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Read-Only Apple Calendar Scraper
   scrapeCalendarEvents: (options) => ipcRenderer.invoke('calendar:scrape', options),
+  checkCalendarPermission: () => ipcRenderer.invoke('calendar:checkPermission'),
   openAppleCalendar: () => ipcRenderer.invoke('calendar:openApple'),
+  openPrivacySettings: (target) => ipcRenderer.invoke('calendar:openPrivacySettings', target),
 
   // Window Controls
   minimizeWindow: () => ipcRenderer.send('window:minimize'),

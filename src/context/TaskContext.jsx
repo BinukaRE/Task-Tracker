@@ -32,6 +32,7 @@ export const TaskProvider = ({ children }) => {
   const [lastScrapeTime, setLastScrapeTime] = useState(null);
   const [scrapeNotice, setScrapeNotice] = useState(null);
   const [scrapeStats, setScrapeStats] = useState({ totalScraped: 0, lastCount: 0 });
+  const [calendarPermission, setCalendarPermission] = useState({ checked: false, authorized: false });
 
   // Pomodoro Focus state
   const [activePomodoroTaskId, setActivePomodoroTaskId] = useState(null);
@@ -96,7 +97,9 @@ export const TaskProvider = ({ children }) => {
       }
     }
 
-    loadData();
+    loadData().then(() => {
+      checkCalendarPermission();
+    });
 
     if (isElectron) {
       const unsubQuick = window.electronAPI.onQuickTaskTriggered(() => {
@@ -210,6 +213,28 @@ export const TaskProvider = ({ children }) => {
    * - Never creates, modifies, or deletes events in Apple Calendar.
    * - Rejects any edits made in Apple Calendar to existing tasks.
    */
+  const checkCalendarPermission = async () => {
+    if (isElectron && window.electronAPI.checkCalendarPermission) {
+      const res = await window.electronAPI.checkCalendarPermission();
+      setCalendarPermission({ checked: true, ...res });
+      return res;
+    }
+    return { authorized: false, isMac: false };
+  };
+
+  const openPrivacySettings = async (target = 'automation') => {
+    if (isElectron && window.electronAPI.openPrivacySettings) {
+      await window.electronAPI.openPrivacySettings(target);
+    }
+  };
+
+  /**
+   * PURE READ-ONLY SCRAPING:
+   * Scrapes events from Apple Calendar into Task Flow.
+   * STRICT POLICY:
+   * - Never creates, modifies, or deletes events in Apple Calendar.
+   * - Rejects any edits made in Apple Calendar to existing tasks.
+   */
   const scrapeCalendarEvents = async (options = {}) => {
     if (!isElectron) {
       setScrapeNotice({ type: 'warning', message: 'Calendar scraping requires the macOS desktop app.' });
@@ -220,6 +245,12 @@ export const TaskProvider = ({ children }) => {
     try {
       const res = await window.electronAPI.scrapeCalendarEvents(options);
       setLastScrapeTime(new Date());
+
+      if (res.isPermissionError) {
+        setCalendarPermission(prev => ({ ...prev, checked: true, authorized: false, isPermissionError: true }));
+      } else if (res.success) {
+        setCalendarPermission(prev => ({ ...prev, checked: true, authorized: true }));
+      }
 
       if (res.success) {
         if (res.newTasks && res.newTasks.length > 0) {
@@ -242,9 +273,10 @@ export const TaskProvider = ({ children }) => {
         }
       } else {
         setScrapeNotice({
-          type: 'warning',
+          type: res.isPermissionError ? 'permission_error' : 'warning',
           message: res.error || 'Scraper notice',
-          details: res.details
+          details: res.details,
+          isPermissionError: res.isPermissionError,
         });
       }
     } catch (err) {
@@ -252,7 +284,7 @@ export const TaskProvider = ({ children }) => {
       setScrapeNotice({ type: 'error', message: 'Failed to scrape Apple Calendar.' });
     } finally {
       setIsScraping(false);
-      setTimeout(() => setScrapeNotice(null), 6000);
+      setTimeout(() => setScrapeNotice(null), 8000);
     }
   };
 
@@ -342,9 +374,15 @@ export const TaskProvider = ({ children }) => {
         isScraping,
         lastScrapeTime,
         scrapeNotice,
+        syncNotice: scrapeNotice, // backward compatibility
+        setScrapeNotice,
+        clearScrapeNotice: () => setScrapeNotice(null),
         scrapeStats,
         scrapeCalendarEvents,
         openAppleCalendar,
+        calendarPermission,
+        checkCalendarPermission,
+        openPrivacySettings,
         // Pomodoro
         activePomodoroTaskId,
         setActivePomodoroTaskId,

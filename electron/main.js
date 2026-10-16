@@ -2,7 +2,12 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, Notificati
 const path = require('path');
 const fs = require('fs');
 const Store = require('./store');
-const { scrapeAppleCalendarEvents, openAppleCalendar } = require('./calendar-sync');
+const {
+  scrapeAppleCalendarEvents,
+  checkCalendarPermission,
+  openAppleCalendar,
+  openPrivacySettings,
+} = require('./calendar-sync');
 
 // Explicitly configure Electron App Name
 app.setName('Task Flow');
@@ -349,6 +354,14 @@ ipcMain.handle('calendar:scrape', async (_event, options) => {
 
 ipcMain.handle('calendar:openApple', async () => {
   return await openAppleCalendar();
+});
+
+ipcMain.handle('calendar:checkPermission', async () => {
+  return await checkCalendarPermission();
+});
+
+ipcMain.handle('calendar:openPrivacySettings', async (_event, target) => {
+  return await openPrivacySettings(target);
 });
 
 ipcMain.handle('system:notify', async (_event, { title, body }) => {

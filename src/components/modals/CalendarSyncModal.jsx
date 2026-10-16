@@ -26,6 +26,9 @@ export default function CalendarSyncModal() {
     lastScrapeTime,
     tasks,
     scrapeStats,
+    calendarPermission,
+    checkCalendarPermission,
+    openPrivacySettings,
   } = useTasks();
 
   const [activeTab, setActiveTab] = useState('scraper'); // 'scraper' | 'manual'
@@ -111,6 +114,45 @@ export default function CalendarSyncModal() {
                 </div>
               </div>
 
+              {/* macOS Permission Diagnostic Card (Shows only if permission is not yet granted) */}
+              {calendarPermission?.checked && !calendarPermission?.authorized && (
+                <div className="p-4 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-slate-900/80 to-amber-950/30 flex items-start gap-3 shadow-lg">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-2.5 flex-1">
+                    <div className="font-bold text-amber-200 flex items-center justify-between">
+                      <span className="text-sm">macOS Calendar Permission Required</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Access Blocked
+                      </span>
+                    </div>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      macOS prevented Task Flow from reading your Apple Calendar (Error -1743). Because macOS protects calendars with Privacy & Security permissions, you need to grant access:
+                    </p>
+                    <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1">
+                      <div>1. Click <strong>Open macOS Settings</strong> below.</div>
+                      <div>2. Under <strong>Automation</strong>, find <strong>Task Flow</strong> (or <strong>Electron</strong>).</div>
+                      <div>3. Toggle <strong>Calendar</strong> to <strong className="text-emerald-400">ON</strong>.</div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => openPrivacySettings('automation')}
+                        className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open macOS Settings</span>
+                      </button>
+                      <button
+                        onClick={() => checkCalendarPermission()}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all flex items-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Check Again</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Scrape Controls Card */}
               <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 space-y-4">
                 <div className="flex items-center justify-between">
@@ -128,7 +170,7 @@ export default function CalendarSyncModal() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                      Scrape Range (Days Ahead):
+                      Scrape Range (Past 7 Days + Ahead):
                     </label>
                     <select
                       value={rangeDays}
@@ -140,16 +182,24 @@ export default function CalendarSyncModal() {
                       <option value={30}>Next 30 Days (Recommended)</option>
                       <option value={60}>Next 60 Days</option>
                       <option value={90}>Next 90 Days</option>
+                      <option value={180}>Next 6 Months</option>
+                      <option value={365}>Next 1 Year</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                      Target App:
+                      Target App Status:
                     </label>
                     <div className="px-3 py-1.5 text-xs rounded-lg glass-input text-slate-300 flex items-center justify-between">
                       <span>macOS Calendar.app</span>
-                      <span className="text-[10px] text-emerald-400 font-semibold">Active</span>
+                      <span className={`text-[10px] font-semibold ${
+                        calendarPermission?.authorized ? 'text-emerald-400' : 'text-amber-400'
+                      }`}>
+                        {calendarPermission?.authorized
+                          ? `Ready (${calendarPermission.calendarCount || 0} Cal)`
+                          : 'Permission Required'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -169,13 +219,21 @@ export default function CalendarSyncModal() {
                       ? `Last scraped: ${new Date(lastScrapeTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                       : 'Ready to scrape'}
                   </span>
-                  <button
-                    onClick={() => openAppleCalendar()}
-                    className="flex items-center gap-1 text-slate-400 hover:text-cyan-300 transition-colors"
-                  >
-                    <span>Launch Apple Calendar</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => openAppleCalendar()}
+                      className="flex items-center gap-1 text-slate-400 hover:text-cyan-300 transition-colors"
+                    >
+                      <span>Open Calendar.app</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => openPrivacySettings('automation')}
+                      className="text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      Permissions
+                    </button>
+                  </div>
                 </div>
               </div>
 

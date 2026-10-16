@@ -6,7 +6,7 @@ const execAsync = util.promisify(exec);
 /**
  * Execute AppleScript via stdin with safety timeout
  */
-function runAppleScript(script, timeoutMs = 10000) {
+function runAppleScript(script, timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
     const proc = spawn('osascript', ['-s', 's']);
     let stdout = '';
@@ -17,7 +17,7 @@ function runAppleScript(script, timeoutMs = 10000) {
       if (!isDone) {
         isDone = true;
         proc.kill();
-        reject(new Error('AppleScript execution timed out'));
+        reject(new Error('AppleScript execution timed out (12s)'));
       }
     }, timeoutMs);
 
@@ -31,7 +31,8 @@ function runAppleScript(script, timeoutMs = 10000) {
       if (code === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(stderr.trim() || `AppleScript exited with code ${code}`));
+        const errText = stderr.trim() || `AppleScript exited with code ${code}`;
+        reject(new Error(errText));
       }
     });
 
@@ -45,6 +46,57 @@ function runAppleScript(script, timeoutMs = 10000) {
     proc.stdin.write(script);
     proc.stdin.end();
   });
+}
+
+/**
+ * Check if Task Flow is authorized to communicate with Apple Calendar
+ */
+async function checkCalendarPermission() {
+  if (process.platform !== 'darwin') {
+    return { authorized: false, isMac: false, message: 'Only macOS supports Apple Calendar' };
+  }
+
+  const script = `
+tell application "Calendar"
+  try
+    set calCount to count of calendars
+    return "OK:" & (calCount as string)
+  on error errMsg number errNum
+    return "ERR:" & (errNum as string) & ":" & errMsg
+  end try
+end tell
+`;
+
+  try {
+    const result = await runAppleScript(script, 5000);
+    if (result.startsWith('OK:')) {
+      const count = parseInt(result.replace('OK:', ''), 10) || 0;
+      return { authorized: true, isMac: true, calendarCount: count };
+    } else {
+      const is1743 = result.includes('-1743') || result.toLowerCase().includes('not authorized');
+      return {
+        authorized: false,
+        isMac: true,
+        isPermissionError: is1743,
+        error: result,
+        message: is1743
+          ? 'Not authorized to send Apple events to Calendar (-1743)'
+          : result,
+      };
+    }
+  } catch (err) {
+    const errMsg = err.message || '';
+    const is1743 = errMsg.includes('-1743') || errMsg.toLowerCase().includes('not authorized');
+    return {
+      authorized: false,
+      isMac: true,
+      isPermissionError: is1743,
+      error: errMsg,
+      message: is1743
+        ? 'Not authorized to send Apple events to Calendar (-1743)'
+        : errMsg,
+    };
+  }
 }
 
 /**
@@ -69,34 +121,67 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
   const existingUids = new Set(existingTasks.map(t => t.calendarEventUid).filter(Boolean));
   const existingTitles = new Set(existingTasks.map(t => (t.title || '').toLowerCase().trim()));
 
+  // Multi-tier resilient AppleScript:
+  // 1. Attempts date-filtered query
+  // 2. If 'whose' clause throws an error or fails due to macOS AppleScript bugs, falls back to full calendar inspection
   const script = `
 tell application "Calendar"
   set eventList to {}
   set nowRef to (current date)
-  set startDate to nowRef - (2 * days)
+  set startDate to nowRef - (7 * days)
   set endDate to nowRef + (${rangeDays} * days)
 
-  repeat with aCal in calendars
+  set calList to calendars
+
+  repeat with aCal in calList
     set cName to name of aCal
+    set foundEvs to {}
+
+    -- Strategy A: Fast filtered query
     try
-      set evs to (every event of aCal whose (start date >= startDate and start date <= endDate))
-      repeat with ev in evs
+      set foundEvs to (every event of aCal whose (start date ≥ startDate and start date ≤ endDate))
+    on error
+      set foundEvs to {}
+    end try
+
+    -- Strategy B: Fallback if Strategy A returned 0 (bypasses AppleScript whose clause bugs with date objects)
+    if (count of foundEvs) is 0 then
+      try
+        set allEvs to every event of aCal
+        repeat with ev in allEvs
+          try
+            set sDate to (start date of ev)
+            if (sDate ≥ startDate and sDate ≤ endDate) then
+              set end of foundEvs to ev
+            end if
+          end try
+        end repeat
+      on error
+        -- Inaccessible or empty calendar
+      end try
+    end if
+
+    -- Extract metadata from found events
+    repeat with ev in foundEvs
+      try
         set evTitle to (summary of ev)
         if evTitle is not missing value and evTitle is not "" then
           set evDesc to (description of ev)
           if evDesc is missing value then set evDesc to ""
           
-          -- Read unique identifier of the event
           set evUid to (uid of ev)
           if evUid is missing value then set evUid to ""
           
-          set evStart to (start date of ev as «class isot» as string)
-          set evEnd to (end date of ev as «class isot» as string)
+          set evStart to (start date of ev)
+          set evEnd to (end date of ev)
           
-          set end of eventList to (evUid & ":::SEP:::" & evTitle & ":::SEP:::" & evStart & ":::SEP:::" & evEnd & ":::SEP:::" & evDesc & ":::SEP:::" & cName)
+          set evStartIso to (evStart as «class isot» as string)
+          set evEndIso to (evEnd as «class isot» as string)
+          
+          set end of eventList to (evUid & ":::SEP:::" & evTitle & ":::SEP:::" & evStartIso & ":::SEP:::" & evEndIso & ":::SEP:::" & evDesc & ":::SEP:::" & cName)
         end if
-      end repeat
-    end try
+      end try
+    end repeat
   end repeat
 
   set AppleScript's text item delimiters to ":::ROW:::"
@@ -105,7 +190,7 @@ end tell
 `;
 
   try {
-    const rawOutput = await runAppleScript(script, 10000);
+    const rawOutput = await runAppleScript(script, 15000);
     const discoveredEvents = [];
     const newTasks = [];
 
@@ -179,16 +264,24 @@ end tell
       message: newTasks.length > 0
         ? `Successfully scraped ${newTasks.length} new event(s) from Apple Calendar!`
         : (discoveredEvents.length > 0
-            ? `Checked ${discoveredEvents.length} calendar event(s). No new events to import (existing tasks were not edited).`
+            ? `Found ${discoveredEvents.length} calendar event(s). No new events to import (existing tasks remain protected and unedited).`
             : 'No events found in Apple Calendar for the selected date range.'),
     };
   } catch (err) {
     console.error('Apple Calendar scraping error:', err);
+    const errMsg = err.message || '';
+    const isPermissionError = errMsg.includes('-1743') ||
+                              errMsg.toLowerCase().includes('not authorized') ||
+                              errMsg.toLowerCase().includes('permission');
+
     return {
       success: false,
       newTasks: [],
-      error: err.message,
-      details: 'Could not access Apple Calendar. Please ensure Calendar permission is granted in macOS System Settings > Privacy & Security > Calendars.',
+      error: isPermissionError ? 'macOS Permission Required' : 'Calendar Scrape Failed',
+      isPermissionError,
+      details: isPermissionError
+        ? 'macOS blocked Task Flow from accessing Calendar (Error -1743). Please open System Settings > Privacy & Security > Automation and enable Calendar for Task Flow.'
+        : `Could not access Apple Calendar (${errMsg}). Ensure Calendar.app is open.`,
     };
   }
 }
@@ -208,7 +301,25 @@ async function openAppleCalendar() {
   return { success: false, error: 'Platform is not macOS' };
 }
 
+/**
+ * Open macOS Privacy & Security Settings directly to Automation or Calendars
+ */
+async function openPrivacySettings(target = 'automation') {
+  if (process.platform === 'darwin') {
+    try {
+      const pane = target === 'calendars' ? 'Privacy_Calendars' : 'Privacy_Automation';
+      await execAsync(`open "x-apple.systempreferences:com.apple.preference.security?${pane}"`);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+  return { success: false, error: 'Platform is not macOS' };
+}
+
 module.exports = {
   scrapeAppleCalendarEvents,
+  checkCalendarPermission,
   openAppleCalendar,
+  openPrivacySettings,
 };
