@@ -5,6 +5,9 @@ const Store = require('./store');
 const { syncTasksWithAppleCalendar, openAppleCalendar, generateIcs } = require('./calendar-sync');
 const { startCalendarServer, getServerInfo, openWebcalSubscription } = require('./server');
 
+// Explicitly configure Electron App Name
+app.setName('Task Flow');
+
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
@@ -256,6 +259,95 @@ function createTray() {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  // Set macOS Dock Icon explicitly
+  if (process.platform === 'darwin' && app.dock) {
+    const iconPath = path.join(__dirname, '../public/icon.png');
+    if (fs.existsSync(iconPath)) {
+      app.dock.setIcon(iconPath);
+    }
+  }
+
+  // Setup Native macOS Application Menu
+  const menuTemplate = [
+    {
+      label: 'Task Flow',
+      submenu: [
+        { role: 'about', label: 'About Task Flow' },
+        { type: 'separator' },
+        {
+          label: 'Quick Add Task...',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+              mainWindow.webContents.send('action:quick-task');
+            }
+          }
+        },
+        {
+          label: 'Sync Calendar',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: async () => {
+            const currentTasks = tasksStore.get('tasks') || [];
+            await syncTasksWithAppleCalendar(currentTasks);
+          }
+        },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide', label: 'Hide Task Flow' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit', label: 'Quit Task Flow' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'Calendar',
+      submenu: [
+        {
+          label: 'Sync with Apple Calendar',
+          click: async () => {
+            const currentTasks = tasksStore.get('tasks') || [];
+            await syncTasksWithAppleCalendar(currentTasks);
+          }
+        },
+        {
+          label: 'Open Apple Calendar',
+          click: () => openAppleCalendar()
+        },
+        {
+          label: 'Subscribe to Live WebCal Feed',
+          click: () => openWebcalSubscription()
+        }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' }
+      ]
+    }
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
+
   // Start local calendar subscription server
   const settings = settingsStore.get();
   await startCalendarServer(
