@@ -19,12 +19,14 @@ export default function TitleBar() {
     <header className="titlebar-drag-region h-14 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl px-4 flex items-center justify-between select-none z-30 sticky top-0">
       {/* Left traffic lights space & branding */}
       <div className="flex items-center gap-3 pl-18 titlebar-no-drag">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-bold text-xs">
-            TT
-          </div>
-          <span className="font-semibold text-sm tracking-tight text-slate-200">
-            Task Tracker <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/20">PRO</span>
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/icon.png"
+            alt="Task Flow Icon"
+            className="w-6 h-6 rounded-lg shadow-md shadow-indigo-500/20 object-cover"
+          />
+          <span className="font-bold text-sm tracking-tight text-slate-100 flex items-center gap-1.5">
+            Task Flow
           </span>
         </div>
 

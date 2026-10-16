@@ -1,0 +1,66 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="50%" stop-color="#3730A3" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+
+    <!-- Accent Glow Gradient -->
+    <linearGradient id="accentGrad" x1="120" y1="120" x2="392" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="45%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+
+    <!-- Checkmark Glow -->
+    <linearGradient id="checkGrad" x1="160" y1="180" x2="350" y2="350" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E0E7FF" />
+    </linearGradient>
+
+    <!-- Shadow filter -->
+    <filter id="shadow" x="0" y="24" width="512" height="488" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#1E1B4B" flood-opacity="0.6"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+
+    <filter id="innerGlow" x="48" y="48" width="416" height="416" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#FFFFFF" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base with Shadow -->
+  <rect x="48" y="48" width="416" height="416" rx="96" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  
+  <!-- Subtle Border Stroke -->
+  <rect x="49" y="49" width="414" height="414" rx="95" stroke="rgba(255, 255, 255, 0.18)" stroke-width="2"/>
+
+  <!-- Calendar Grid Top Header Bar (Subtle) -->
+  <rect x="100" y="116" width="312" height="52" rx="16" fill="white" fill-opacity="0.08" />
+  <circle cx="136" cy="142" r="7" fill="#F43F5E" fill-opacity="0.9" />
+  <circle cx="164" cy="142" r="7" fill="#F59E0B" fill-opacity="0.9" />
+  <circle cx="192" cy="142" r="7" fill="#10B981" fill-opacity="0.9" />
+
+  <!-- Flow Wave Lines (Dynamic Task Flow) -->
+  <path d="M100 240 C 160 210, 200 280, 260 250 C 320 220, 360 270, 412 240" 
+        stroke="url(#accentGrad)" stroke-width="8" stroke-linecap="round" stroke-opacity="0.4"/>
+  <path d="M100 280 C 160 250, 200 320, 260 290 C 320 260, 360 310, 412 280" 
+        stroke="url(#accentGrad)" stroke-width="5" stroke-linecap="round" stroke-opacity="0.2"/>
+
+  <!-- Dynamic Glowing Task Checkmark & Flow Node -->
+  <g filter="url(#innerGlow)">
+    <!-- Checkmark Path -->
+    <path d="M172 268 L 232 328 L 344 196" 
+          stroke="url(#checkGrad)" 
+          stroke-width="36" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+  </g>
+
+  <!-- Glowing Pulse Nodes -->
+  <circle cx="344" cy="196" r="12" fill="#38BDF8" filter="url(#innerGlow)"/>
+  <circle cx="232" cy="328" r="10" fill="#818CF8"/>
+  <circle cx="172" cy="268" r="8" fill="#C084FC"/>
+</svg>

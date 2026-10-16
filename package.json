@@ -1,7 +1,8 @@
 {
-  "name": "task-tracker",
+  "name": "task-flow",
+  "productName": "Task Flow",
   "version": "1.0.0",
-  "description": "",
+  "description": "Advanced task tracking system with macOS Calendar integration",
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"electron .\"",

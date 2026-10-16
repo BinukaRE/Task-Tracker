@@ -114,7 +114,7 @@ export default function CalendarSyncModal() {
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Directly creates and maintains a dedicated <strong>"Task Tracker Pro"</strong> calendar inside your macOS Calendar app. Events update with descriptions, subtasks, priorities, and alarms.
+              Directly creates and maintains a dedicated <strong>"Task Flow"</strong> calendar inside your macOS Calendar app. Events update with descriptions, subtasks, priorities, and alarms.
             </p>
             <div className="flex items-center gap-2 pt-1">
               <button

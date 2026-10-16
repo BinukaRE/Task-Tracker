@@ -4,7 +4,7 @@ const ical = require('ical-generator').default || require('ical-generator');
 
 const execAsync = util.promisify(exec);
 
-const CALENDAR_NAME = 'Task Tracker Pro';
+const CALENDAR_NAME = 'Task Flow';
 
 /**
  * Generate standard RFC 5545 iCalendar content for tasks
@@ -12,11 +12,11 @@ const CALENDAR_NAME = 'Task Tracker Pro';
 function generateIcs(tasks = [], options = {}) {
   const calendar = ical({
     name: options.name || CALENDAR_NAME,
-    description: 'Tasks synchronized from Task Tracker Pro Desktop App',
+    description: 'Tasks synchronized from Task Flow macOS Desktop App',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     prodId: {
-      company: 'TaskTrackerPro',
-      product: 'TaskTrackerMac',
+      company: 'TaskFlow',
+      product: 'TaskFlowMac',
       language: 'EN',
     },
   });

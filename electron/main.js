@@ -110,7 +110,7 @@ const settingsStore = new Store('settings.json', {
   syncIntervalMinutes: 30,
   webcalPort: 52884,
   theme: 'dark',
-  calendarName: 'Task Tracker Pro',
+  calendarName: 'Task Flow',
   notificationsEnabled: true
 });
 
@@ -120,7 +120,8 @@ function createMainWindow() {
     height: 820,
     minWidth: 960,
     minHeight: 650,
-    title: 'Task Tracker Pro',
+    title: 'Task Flow',
+    icon: path.join(__dirname, '../public/icon.png'),
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     backgroundColor: '#0f172a',
@@ -163,7 +164,7 @@ function createTray() {
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip('Task Tracker Pro');
+  tray.setToolTip('Task Flow');
 
   const updateContextMenu = () => {
     const tasks = tasksStore.get('tasks') || [];
@@ -171,12 +172,12 @@ function createTray() {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: `Task Tracker (${pendingCount} active)`,
+        label: `Task Flow (${pendingCount} active)`,
         enabled: false,
       },
       { type: 'separator' },
       {
-        label: 'Open Task Tracker',
+        label: 'Open Task Flow',
         click: () => {
           if (mainWindow) {
             mainWindow.show();
@@ -225,7 +226,7 @@ function createTray() {
       },
       { type: 'separator' },
       {
-        label: 'Quit Task Tracker Pro',
+        label: 'Quit Task Flow',
         accelerator: 'CommandOrControl+Q',
         click: () => {
           isQuitting = true;

@@ -100,7 +100,7 @@ export default function CalendarView() {
               </span>
             </h4>
             <p className="text-[11px] text-slate-400">
-              Tasks created or scheduled here sync directly into your local Apple Calendar ("Task Tracker Pro" calendar).
+              Tasks created or scheduled here sync directly into your local Apple Calendar ("Task Flow" calendar).
             </p>
           </div>
         </div>
