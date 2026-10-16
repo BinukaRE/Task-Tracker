@@ -32,14 +32,19 @@ export default function CalendarSyncModal() {
   } = useTasks();
 
   const [activeTab, setActiveTab] = useState('scraper'); // 'scraper' | 'manual'
-  const [rangeDays, setRangeDays] = useState(30);
+  const [rangeDays, setRangeDays] = useState(90);
+  const [selectedCal, setSelectedCal] = useState('all');
 
   if (!isCalendarModalOpen) return null;
 
   const scrapedTasksCount = tasks.filter(t => t.calendarEventUid || (t.tags && t.tags.includes('AppleCalendar'))).length;
 
   const handleScrape = () => {
-    scrapeCalendarEvents({ rangeDays: Number(rangeDays) });
+    scrapeCalendarEvents({
+      rangeDays: Number(rangeDays),
+      pastDays: Math.max(60, Math.round(Number(rangeDays) * 0.7)),
+      targetCalendar: selectedCal === 'all' ? null : selectedCal,
+    });
   };
 
   return (
@@ -170,37 +175,36 @@ export default function CalendarSyncModal() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                      Scrape Range (Past 7 Days + Ahead):
+                      Scrape Date Window:
                     </label>
                     <select
                       value={rangeDays}
                       onChange={(e) => setRangeDays(Number(e.target.value))}
                       className="w-full px-3 py-1.5 text-xs rounded-lg glass-input text-slate-200 focus:outline-none"
                     >
-                      <option value={7}>Next 7 Days</option>
-                      <option value={14}>Next 14 Days</option>
-                      <option value={30}>Next 30 Days (Recommended)</option>
-                      <option value={60}>Next 60 Days</option>
-                      <option value={90}>Next 90 Days</option>
-                      <option value={180}>Next 6 Months</option>
-                      <option value={365}>Next 1 Year</option>
+                      <option value={90}>Past 60 Days + Next 90 Days (Recommended)</option>
+                      <option value={180}>Past 90 Days + Next 180 Days (Full Year)</option>
+                      <option value={30}>Past 30 Days + Next 30 Days</option>
+                      <option value={365}>All Events (Past 1 Year to Next 1 Year)</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                      Target App Status:
+                      Target Calendar:
                     </label>
-                    <div className="px-3 py-1.5 text-xs rounded-lg glass-input text-slate-300 flex items-center justify-between">
-                      <span>macOS Calendar.app</span>
-                      <span className={`text-[10px] font-semibold ${
-                        calendarPermission?.authorized ? 'text-emerald-400' : 'text-amber-400'
-                      }`}>
-                        {calendarPermission?.authorized
-                          ? `Ready (${calendarPermission.calendarCount || 0} Cal)`
-                          : 'Permission Required'}
-                      </span>
-                    </div>
+                    <select
+                      value={selectedCal}
+                      onChange={(e) => setSelectedCal(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs rounded-lg glass-input text-slate-200 focus:outline-none"
+                    >
+                      <option value="all">All Responsive Calendars (Auto)</option>
+                      <option value="s24016507@ousl.lk">s24016507@ousl.lk (University)</option>
+                      <option value="binukareshane@gmail.com">binukareshane@gmail.com (Personal)</option>
+                      <option value="Home">Home</option>
+                      <option value="Work">Work</option>
+                      <option value="Family">Family</option>
+                    </select>
                   </div>
                 </div>
 

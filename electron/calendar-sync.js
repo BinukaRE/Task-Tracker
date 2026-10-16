@@ -9,6 +9,7 @@ const SYSTEM_CALENDARS = [
   'siri suggestions',
   'holidays in sri lanka',
   'scheduled reminders',
+  'university event log',
 ];
 
 /**
@@ -183,6 +184,7 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
         continue;
       }
 
+      const safeCalName = calName.replace(/"/g, '\\"');
       const calScript = `
 tell application "Calendar"
   set nowRef to (current date)
@@ -190,7 +192,7 @@ tell application "Calendar"
   set endDate to nowRef + (${futureDays} * days)
   set res to {}
   try
-    set targetCal to calendar ${i}
+    set targetCal to calendar "${safeCalName}"
     set evs to (events of targetCal whose start date >= startDate and start date <= endDate)
     repeat with ev in evs
       try
@@ -210,7 +212,7 @@ end tell
 `;
 
       try {
-        const rawOutput = await runAppleScript(calScript, 10000);
+        const rawOutput = await runAppleScript(calScript, 15000);
         if (rawOutput && rawOutput.length > 0) {
           const rows = rawOutput.split(':::ROW:::').filter(r => r.trim().length > 0);
 

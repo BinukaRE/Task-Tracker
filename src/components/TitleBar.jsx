@@ -62,15 +62,17 @@ export default function TitleBar() {
       <div className="flex items-center gap-2 titlebar-no-drag">
         {/* Scrape Calendar Button */}
         <button
-          onClick={() => scrapeCalendarEvents()}
+          onClick={() => scrapeCalendarEvents({ pastDays: 60, rangeDays: 90 })}
           disabled={isScraping}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700/60 bg-slate-900/80 hover:bg-slate-800 text-slate-200 transition-all ${
-            isScraping ? 'opacity-70 cursor-wait' : ''
+            isScraping ? 'opacity-80 cursor-wait bg-cyan-950/40 border-cyan-500/40 text-cyan-300' : ''
           }`}
           title="Scrape new events from Apple Calendar (Read-Only, never edits calendar)"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isScraping ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Scrape Calendar</span>
+          <span className="hidden sm:inline">
+            {isScraping ? 'Scraping Calendar...' : 'Scrape Calendar'}
+          </span>
         </button>
 
         {/* Calendar Scraper Hub Modal Launcher */}
