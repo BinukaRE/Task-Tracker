@@ -70,20 +70,32 @@ export default function CalendarView() {
 
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Helper to extract clean YYYY-MM-DD from any task
-  const getTaskDateStr = (task) => {
-    if (task.dueDate) {
-      return task.dueDate.split('T')[0];
-    }
+  // Helper to check if a task occurs on a given date (with multi-day span support)
+  const isTaskOnDate = (task, dateString) => {
+    if (!task) return false;
+    const taskDue = task.dueDate ? task.dueDate.split('T')[0] : null;
+    if (taskDue === dateString) return true;
+
     if (task.startTime) {
       try {
-        const d = new Date(task.startTime);
-        if (!isNaN(d.getTime())) {
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const start = new Date(task.startTime);
+        if (!isNaN(start.getTime())) {
+          const startDateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+          if (startDateStr === dateString) return true;
+
+          if (task.endTime) {
+            const end = new Date(task.endTime);
+            if (!isNaN(end.getTime())) {
+              const endDateStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+              if (dateString >= startDateStr && dateString <= endDateStr) {
+                return true;
+              }
+            }
+          }
         }
       } catch {}
     }
-    return null;
+    return false;
   };
 
   // Helper to format event time
@@ -143,7 +155,7 @@ export default function CalendarView() {
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Tasks for the selected date drawer
-  const selectedDateTasks = tasks.filter((t) => getTaskDateStr(t) === selectedDateStr);
+  const selectedDateTasks = tasks.filter((t) => isTaskOnDate(t, selectedDateStr));
 
   return (
     <div className="h-full flex-1 flex flex-col p-6 bg-slate-900/30 overflow-hidden">
@@ -274,7 +286,7 @@ export default function CalendarView() {
             const isSelected = cell.dateString === selectedDateStr;
 
             // Find tasks/events for this day
-            const dayTasks = tasks.filter((t) => getTaskDateStr(t) === cell.dateString);
+            const dayTasks = tasks.filter((t) => isTaskOnDate(t, cell.dateString));
             const calEventsCount = dayTasks.filter(
               (t) => t.calendarEventUid || t.isCalendarScraped || (t.tags && t.tags.includes('AppleCalendar'))
             ).length;
