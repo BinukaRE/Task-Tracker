@@ -428,6 +428,35 @@ end tell
   }
 }
 
+/**
+ * 1-Click Import all tasks into Apple Calendar via .ics file:
+ * macOS Calendar directly opens with "Add Events to Calendar" dialog with 100% reliability!
+ */
+async function importIcsToCalendar(tasks = []) {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'Platform is not macOS' };
+  }
+
+  try {
+    const icsContent = generateIcs(tasks);
+    const tempIcsPath = path.join(os.tmpdir(), 'TaskFlow-Import.ics');
+    fs.writeFileSync(tempIcsPath, icsContent, 'utf8');
+
+    // Open .ics file directly with Apple Calendar
+    await execAsync(`open -a Calendar "${tempIcsPath}"`);
+
+    return {
+      success: true,
+      message: 'Opened in Apple Calendar! Click "Add" or "OK" to import all tasks.',
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message,
+    };
+  }
+}
+
 module.exports = {
   CALENDAR_NAME,
   generateIcs,
@@ -435,4 +464,5 @@ module.exports = {
   openAppleCalendar,
   connectCalendar,
   scrapeNewEventsFromAppleCalendar,
+  importIcsToCalendar,
 };

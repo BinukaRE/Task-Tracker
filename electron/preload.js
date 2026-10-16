@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Local Apple Calendar Integration
   syncAppleCalendar: () => ipcRenderer.invoke('calendar:syncApple'),
   connectCalendar: () => ipcRenderer.invoke('calendar:connect'),
+  importIcsToCalendar: () => ipcRenderer.invoke('calendar:importIcs'),
   scrapeNewCalendarEvents: () => ipcRenderer.invoke('calendar:scrapeNewEvents'),
   openAppleCalendar: () => ipcRenderer.invoke('calendar:openApple'),
   getCalendarServerInfo: () => ipcRenderer.invoke('calendar:getServerInfo'),

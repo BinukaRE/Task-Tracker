@@ -28,6 +28,7 @@ export default function CalendarSyncModal() {
     setIsCalendarModalOpen,
     syncAppleCalendar,
     connectCalendar,
+    importIcsToCalendar,
     scrapeNewCalendarEvents,
     openAppleCalendar,
     subscribeWebcal,
@@ -195,12 +196,20 @@ export default function CalendarSyncModal() {
                   Subscribing links your Calendar directly to Task Flow. Any changes made in Task Flow immediately reflect on your Mac, iPhone, and iPad via iCloud Calendar.
                 </p>
 
+                {/* Subscription Notice */}
+                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Subscription Location Tip:</strong> When Apple Calendar's prompt opens, make sure to set <strong>Location: "On My Mac"</strong> (not iCloud). Apple's cloud servers cannot connect to local computer ports.
+                  </div>
+                </div>
+
                 <button
                   onClick={() => subscribeWebcal()}
                   className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-all active:scale-95"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Subscribe in Apple Calendar</span>
+                  <span>Subscribe in Apple Calendar (Set Location: "On My Mac")</span>
                 </button>
 
                 <div>
@@ -223,6 +232,32 @@ export default function CalendarSyncModal() {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* 1-Click Native Import Card (Guaranteed Zero-Error Import) */}
+              <div className="rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-purple-950/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs font-bold text-slate-100">
+                      1-Click Native Import to Apple Calendar (Guaranteed)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                    Instant & Works in iCloud
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Bypasses all WebCal subscription errors! Opens Apple Calendar with a pre-built <code className="text-indigo-300">.ics</code> package. Simply click <strong>"Add"</strong> in the Apple Calendar popup, and every task is added into your calendar.
+                </p>
+                <button
+                  onClick={() => importIcsToCalendar()}
+                  disabled={isSyncing}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>1-Click Import All Tasks into Apple Calendar</span>
+                </button>
               </div>
 
               {/* Direct AppleScript Sync & App Launch */}

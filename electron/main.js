@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, Notificati
 const path = require('path');
 const fs = require('fs');
 const Store = require('./store');
-const { syncTasksWithAppleCalendar, openAppleCalendar, generateIcs, connectCalendar, scrapeNewEventsFromAppleCalendar } = require('./calendar-sync');
+const { syncTasksWithAppleCalendar, openAppleCalendar, generateIcs, connectCalendar, scrapeNewEventsFromAppleCalendar, importIcsToCalendar } = require('./calendar-sync');
 const { startCalendarServer, getServerInfo, openWebcalSubscription } = require('./server');
 
 // Explicitly configure Electron App Name
@@ -425,6 +425,11 @@ ipcMain.handle('calendar:scrapeNewEvents', async () => {
     tasksStore.set('tasks', updated);
   }
   return result;
+});
+
+ipcMain.handle('calendar:importIcs', async () => {
+  const tasks = tasksStore.get('tasks') || [];
+  return await importIcsToCalendar(tasks);
 });
 
 ipcMain.handle('calendar:openApple', async () => {

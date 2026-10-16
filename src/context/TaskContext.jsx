@@ -292,6 +292,30 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  // 1-Click Native Import into Apple Calendar (Bypasses network and WebCal subscription issues completely)
+  const importIcsToCalendar = async () => {
+    if (!isElectron) {
+      window.open(serverInfo.downloadUrl || 'http://localhost:52884/download.ics', '_blank');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const res = await window.electronAPI.importIcsToCalendar();
+      if (res.success) {
+        setSyncNotice({ type: 'success', message: res.message || 'Opened in Apple Calendar! Click Add to import.' });
+      } else {
+        setSyncNotice({ type: 'warning', message: res.error || 'Notice' });
+      }
+    } catch (err) {
+      console.error('Error importing to calendar:', err);
+      setSyncNotice({ type: 'error', message: 'Failed to open calendar import.' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncNotice(null), 6000);
+    }
+  };
+
   // Scrape ONLY new events from Apple Calendar (strictly rejecting edits to existing tasks)
   const scrapeNewCalendarEvents = async () => {
     if (!isElectron) {
@@ -435,6 +459,7 @@ export const TaskProvider = ({ children }) => {
         syncNotice,
         serverInfo,
         connectCalendar,
+        importIcsToCalendar,
         scrapeNewCalendarEvents,
         syncAppleCalendar,
         openAppleCalendar,
