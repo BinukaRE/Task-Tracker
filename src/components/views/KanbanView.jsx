@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
 import {
   Plus,
@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   Timer,
   MoreVertical,
-  AlertCircle
+  AlertCircle,
+  GripVertical
 } from 'lucide-react';
 
 const COLUMNS = [
@@ -33,6 +34,9 @@ export default function KanbanView() {
     setCurrentView,
     setActivePomodoroTaskId,
   } = useTasks();
+
+  const [draggingTaskId, setDraggingTaskId] = useState(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState(null);
 
   const handleMove = (task, direction) => {
     const statusOrder = ['todo', 'in_progress', 'review', 'done'];
@@ -85,11 +89,39 @@ export default function KanbanView() {
       <div className="flex gap-5 min-w-[1020px] h-full items-start">
         {COLUMNS.map((column) => {
           const colTasks = filteredTasks.filter((t) => t.status === column.id);
+          const isColumnHovered = dragOverColumnId === column.id;
 
           return (
             <div
               key={column.id}
-              className="flex-1 flex flex-col max-h-full rounded-2xl border border-slate-800/80 bg-slate-950/40 backdrop-blur-md overflow-hidden"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragOverColumnId !== column.id) setDragOverColumnId(column.id);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragOverColumnId(column.id);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                  setDragOverColumnId(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const taskId = e.dataTransfer.getData('text/plain') || draggingTaskId;
+                if (taskId) {
+                  updateTask(taskId, { status: column.id });
+                }
+                setDraggingTaskId(null);
+                setDragOverColumnId(null);
+              }}
+              className={`flex-1 flex flex-col max-h-full rounded-2xl border transition-all duration-200 bg-slate-950/40 backdrop-blur-md overflow-hidden ${
+                isColumnHovered
+                  ? 'border-indigo-400 ring-2 ring-indigo-500/50 bg-indigo-950/20 shadow-2xl scale-[1.01]'
+                  : 'border-slate-800/80'
+              }`}
             >
               {/* Column Header */}
               <div className={`p-3.5 border-b ${column.border} bg-gradient-to-b ${column.color} flex items-center justify-between`}>
@@ -113,23 +145,42 @@ export default function KanbanView() {
               {/* Tasks List */}
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {colTasks.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-slate-500 border border-dashed border-slate-800/60 rounded-xl">
-                    No tasks here
+                  <div
+                    className={`py-12 text-center text-xs rounded-xl border border-dashed transition-all ${
+                      isColumnHovered
+                        ? 'border-indigo-400/80 text-indigo-300 bg-indigo-500/10'
+                        : 'border-slate-800/60 text-slate-500'
+                    }`}
+                  >
+                    {isColumnHovered ? 'Drop task here' : 'No tasks here (drag tasks here)'}
                   </div>
                 ) : (
                   colTasks.map((task) => {
+                    const isDragging = draggingTaskId === task.id;
                     const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
                     const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
 
                     return (
                       <div
                         key={task.id}
-                        className={`group relative rounded-xl border border-slate-800/80 bg-slate-900/90 hover:border-slate-700/80 hover:bg-slate-900 p-4 transition-all duration-150 shadow-sm hover:shadow-md cursor-pointer ${
-                          task.status === 'done' ? 'opacity-70' : ''
-                        }`}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', task.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggingTaskId(task.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggingTaskId(null);
+                          setDragOverColumnId(null);
+                        }}
+                        className={`group relative rounded-xl border p-4 transition-all duration-150 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing select-none ${
+                          isDragging
+                            ? 'opacity-40 border-dashed border-indigo-400 bg-indigo-950/20 scale-95'
+                            : 'border-slate-800/80 bg-slate-900/90 hover:border-slate-700/80 hover:bg-slate-900'
+                        } ${task.status === 'done' ? 'opacity-70' : ''}`}
                         onClick={() => openEditModal(task)}
                       >
-                        {/* Top bar: Category + Priority + Calendar badge */}
+                        {/* Top bar: Category + Priority + Calendar badge + Drag handle */}
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800 text-slate-300">
@@ -138,15 +189,18 @@ export default function KanbanView() {
                             {getPriorityBadge(task.priority)}
                           </div>
 
-                          {task.syncWithCalendar && (
-                            <div
-                              className="text-[10px] text-indigo-400 flex items-center gap-1 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20"
-                              title="Linked with Apple Calendar"
-                            >
-                              <Calendar className="w-3 h-3" />
-                              <span className="hidden xl:inline">iCal</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {(task.calendarEventUid || (task.tags && task.tags.includes('AppleCalendar')) || task.syncWithCalendar) && (
+                              <div
+                                className="text-[10px] text-cyan-400 flex items-center gap-1 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 font-medium"
+                                title="Apple Calendar Event"
+                              >
+                                <Calendar className="w-3 h-3" />
+                                <span>Apple Cal</span>
+                              </div>
+                            )}
+                            <GripVertical className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                          </div>
                         </div>
 
                         {/* Title & Checkbox */}
