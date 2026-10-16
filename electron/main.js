@@ -86,6 +86,14 @@ function createMainWindow() {
   const distPath = path.join(__dirname, '../dist/index.html');
   const isDev = process.env.NODE_ENV === 'development';
 
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[Renderer Console] (L${level} ${sourceId}:${line}): ${message}`);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[Renderer Load Failed] Code ${errorCode}: ${errorDescription} (${validatedURL})`);
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173').catch(() => {
       if (fs.existsSync(distPath)) {

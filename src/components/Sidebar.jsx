@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   FolderOpen,
   Filter,
-  Zap
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 
 export default function Sidebar() {
