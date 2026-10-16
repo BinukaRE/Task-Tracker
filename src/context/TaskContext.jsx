@@ -292,6 +292,43 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  // Scrape ONLY new events from Apple Calendar (strictly rejecting edits to existing tasks)
+  const scrapeNewCalendarEvents = async () => {
+    if (!isElectron) {
+      setSyncNotice({ type: 'warning', message: 'Calendar scraping is available in macOS Desktop app mode.' });
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const res = await window.electronAPI.scrapeNewCalendarEvents();
+      if (res.success) {
+        if (res.newTasks && res.newTasks.length > 0) {
+          setTasks((prev) => [...res.newTasks, ...prev]);
+          setSyncNotice({
+            type: 'success',
+            message: res.message,
+            details: 'Existing tasks remain protected and locked against calendar edits.'
+          });
+        } else {
+          setSyncNotice({
+            type: 'info',
+            message: res.message || 'No new events found in Apple Calendar.',
+            details: 'Any external edits to existing tasks were ignored.'
+          });
+        }
+      } else {
+        setSyncNotice({ type: 'warning', message: res.error || 'Scraping notice', details: res.details });
+      }
+    } catch (err) {
+      console.error('Error scraping calendar:', err);
+      setSyncNotice({ type: 'error', message: 'Failed to scrape events from Apple Calendar.' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncNotice(null), 6000);
+    }
+  };
+
   // Subscribe via WebCal
   const subscribeWebcal = async () => {
     if (isElectron) {
@@ -398,6 +435,7 @@ export const TaskProvider = ({ children }) => {
         syncNotice,
         serverInfo,
         connectCalendar,
+        scrapeNewCalendarEvents,
         syncAppleCalendar,
         openAppleCalendar,
         subscribeWebcal,

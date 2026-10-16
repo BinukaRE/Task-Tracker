@@ -314,10 +314,125 @@ async function connectCalendar(tasks = []) {
   }
 }
 
+/**
+ * Scrapes ONLY NEW events from Apple Calendar into Task Flow.
+ * Strictly ignores and rejects any edits made in Apple Calendar to existing tasks.
+ */
+async function scrapeNewEventsFromAppleCalendar(existingTasks = []) {
+  if (process.platform !== 'darwin') {
+    return {
+      success: false,
+      error: 'Apple Calendar scraping is only supported on macOS.',
+      newTasks: []
+    };
+  }
+
+  const existingTitles = new Set(existingTasks.map(t => (t.title || '').toLowerCase().trim()));
+
+  const script = `
+tell application "Calendar"
+  set results to ""
+  set nowRef to (current date)
+  set startSearch to nowRef - (2 * days)
+  set endSearch to nowRef + (30 * days)
+
+  repeat with aCal in calendars
+    set calName to name of aCal
+    try
+      set evs to (every event of aCal whose (start date >= startSearch and start date <= endSearch))
+      repeat with ev in evs
+        set evDesc to (description of ev)
+        if evDesc is missing value then set evDesc to ""
+        
+        -- Filter rule: Only scrape if it DOES NOT have an existing Task Flow ID tag
+        -- Any existing Task Flow task events that were modified in Calendar are strictly ignored!
+        if (evDesc does not contain "TaskTracker-ID") and (evDesc does not contain "taskflow-") then
+          set evTitle to (summary of ev)
+          if evTitle is not missing value and evTitle is not "" then
+            set evStart to (start date of ev as «class isot» as string)
+            set evEnd to (end date of ev as «class isot» as string)
+            set results to results & evTitle & ":::SEP:::" & evStart & ":::SEP:::" & evEnd & ":::SEP:::" & evDesc & ":::SEP:::" & calName & ":::ROW:::"
+          end if
+        end if
+      end repeat
+    end try
+  end repeat
+  return results
+end tell
+`;
+
+  try {
+    const rawOutput = await runAppleScript(script, 8000);
+    const newTasks = [];
+
+    if (rawOutput && rawOutput.length > 0) {
+      const rows = rawOutput.split(':::ROW:::').filter(r => r.trim().length > 0);
+
+      for (const row of rows) {
+        const parts = row.split(':::SEP:::');
+        if (parts.length >= 4) {
+          const title = parts[0].trim();
+          const startDateStr = parts[1].trim();
+          const endDateStr = parts[2].trim();
+          const desc = parts[3].trim();
+          const calName = parts[4] ? parts[4].trim() : 'Calendar';
+
+          // Strictly filter: Only import if not already an existing task by title
+          if (!existingTitles.has(title.toLowerCase())) {
+            const startDate = new Date(startDateStr);
+            const dueDate = !isNaN(startDate.getTime()) ? startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+            newTasks.push({
+              id: 'task-cal-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+              title: title,
+              description: desc ? `Imported from Apple Calendar (${calName})\n\n${desc}` : `Imported from Apple Calendar (${calName})`,
+              status: 'todo',
+              priority: 'medium',
+              category: calName === 'Work' ? 'Work' : (calName === 'Personal' ? 'Personal' : 'General'),
+              tags: ['CalendarImport'],
+              dueDate: dueDate,
+              startTime: !isNaN(startDate.getTime()) ? startDate.toISOString() : null,
+              endTime: endDateStr && !isNaN(new Date(endDateStr).getTime()) ? new Date(endDateStr).toISOString() : null,
+              estimatedMinutes: 60,
+              actualMinutes: 0,
+              subtasks: [],
+              syncWithCalendar: true,
+              reminderMinutesBefore: 15,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+
+            existingTitles.add(title.toLowerCase());
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      newTasks: newTasks,
+      scrapedCount: newTasks.length,
+      ignoredEdits: true,
+      message: newTasks.length > 0
+        ? `Successfully imported ${newTasks.length} new event(s) from Apple Calendar! (Any edits to existing tasks were ignored).`
+        : 'Checked Apple Calendar: No new external events found. Existing task edits were ignored as per policy.',
+    };
+  } catch (err) {
+    console.error('Apple Calendar scraping notice:', err);
+    return {
+      success: false,
+      newTasks: [],
+      error: err.message,
+      details: 'Could not access Apple Calendar. Ensure Calendar permissions are granted in System Settings > Privacy & Security > Calendars.',
+    };
+  }
+}
+
 module.exports = {
   CALENDAR_NAME,
   generateIcs,
   syncTasksWithAppleCalendar,
   openAppleCalendar,
   connectCalendar,
+  scrapeNewEventsFromAppleCalendar,
 };

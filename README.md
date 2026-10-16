@@ -58,24 +58,23 @@ npm start
 
 ## 🔗 How the Local Calendar Link Works
 
-Task Tracker Pro supports two complementary integration approaches:
+Task Flow provides a robust calendar integration engine with an **authoritative data integrity policy**:
+- **Scrapes NEW Events Only**: You can scrape new events from Apple Calendar into Task Flow with 1 click.
+- **Strictly Rejects Calendar Edits**: Any external edits made to existing tasks inside Apple Calendar are discarded to keep your subtasks, status, and priorities uncorrupted.
 
-### Method 1: Direct AppleScript Sync (Instant Native Calendar Creation)
-1. Click **"Sync Calendar"** in the top bar or menu bar tray.
-2. The application uses macOS AppleScript (`osascript`) to inspect your local Calendar app.
-3. If not already present, it creates a new calendar titled **"Task Tracker Pro"** with custom styling.
-4. Each scheduled task is inserted or updated as an event with:
-   - Summary and status (e.g. `✓ [DONE]` when completed).
-   - Detailed notes containing category, tags, and checklist subtasks.
-   - Configurable alarms (e.g., alert 15 minutes before due time).
+For comprehensive instructions, see the complete [**Calendar User Manual (CALENDAR_USER_MANUAL.md)**](file:///Users/binuka/Documents/GitHub/Task%20Tracker/CALENDAR_USER_MANUAL.md).
 
-> **Note on macOS Permissions**: When first triggering direct AppleScript sync, macOS may prompt to allow Task Tracker to access Calendars. Click **OK / Allow**.
+### Method 1: 1-Click Connect Calendar (Recommended WebCal)
+1. Click **"1-Click Connect Calendar"** in the sidebar or Calendar Hub.
+2. Apple Calendar opens asking to subscribe to `webcal://localhost:52884/calendar.ics`.
+3. Set location to **iCloud** to sync tasks across your Mac, iPhone, and iPad.
 
-### Method 2: Live WebCal Subscription (`webcal://`)
-1. Click **"Calendar Hub"** in the app header and choose **"1-Click Subscribe in Apple Calendar"**.
-2. macOS opens the native Calendar subscription dialog connected to `webcal://localhost:52884/calendar.ics`.
-3. Set the refresh interval (e.g., "Every 15 minutes" or "Every hour").
-4. Any tasks you create or modify automatically appear in your Apple Calendar and sync across all your Apple devices via iCloud.
+### Method 2: Direct AppleScript Sync (Push Tasks)
+1. Click **"Sync Calendar"** to push tasks directly into a dedicated **"Task Flow"** calendar in Apple Calendar with alarms and notes.
+
+### Method 3: Scrape New Calendar Events
+1. In the Calendar Hub, click **"Scrape New Events from Calendar"**.
+2. Brand-new external events are imported as tasks. Existing tasks are protected from modifications.
 
 ---
 
