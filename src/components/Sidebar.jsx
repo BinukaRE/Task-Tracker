@@ -25,6 +25,7 @@ export default function Sidebar() {
     categories,
     tasks,
     openAppleCalendar,
+    connectCalendar,
     subscribeWebcal,
     setIsCalendarModalOpen,
     lastSyncTime,
@@ -187,6 +188,14 @@ export default function Sidebar() {
               ? `Last synced: ${new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
               : 'Auto-sync active'}
           </div>
+
+          <button
+            onClick={() => connectCalendar()}
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-95 mb-2"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>1-Click Connect Calendar</span>
+          </button>
 
           <div className="grid grid-cols-2 gap-1.5">
             <button

@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, Notificati
 const path = require('path');
 const fs = require('fs');
 const Store = require('./store');
-const { syncTasksWithAppleCalendar, openAppleCalendar, generateIcs } = require('./calendar-sync');
+const { syncTasksWithAppleCalendar, openAppleCalendar, generateIcs, connectCalendar } = require('./calendar-sync');
 const { startCalendarServer, getServerInfo, openWebcalSubscription } = require('./server');
 
 // Explicitly configure Electron App Name
@@ -135,11 +135,21 @@ function createMainWindow() {
     },
   });
 
-  const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
+  const distPath = path.join(__dirname, '../dist/index.html');
+  const isDev = process.env.NODE_ENV === 'development';
+
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173').catch(() => {
+      if (fs.existsSync(distPath)) {
+        mainWindow.loadFile(distPath);
+      }
+    });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    if (fs.existsSync(distPath)) {
+      mainWindow.loadFile(distPath);
+    } else {
+      mainWindow.loadURL('http://localhost:5173');
+    }
   }
 
   mainWindow.on('close', (event) => {
@@ -400,6 +410,11 @@ ipcMain.handle('settings:save', async (_event, newSettings) => {
 ipcMain.handle('calendar:syncApple', async () => {
   const tasks = tasksStore.get('tasks') || [];
   return await syncTasksWithAppleCalendar(tasks);
+});
+
+ipcMain.handle('calendar:connect', async () => {
+  const tasks = tasksStore.get('tasks') || [];
+  return await connectCalendar(tasks);
 });
 
 ipcMain.handle('calendar:openApple', async () => {

@@ -1,5 +1,8 @@
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const util = require('util');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const ical = require('ical-generator').default || require('ical-generator');
 
 const execAsync = util.promisify(exec);
@@ -32,11 +35,9 @@ function generateIcs(tasks = [], options = {}) {
     } else if (task.estimatedMinutes) {
       end = new Date(start.getTime() + task.estimatedMinutes * 60 * 1000);
     } else {
-      // Default to 1 hour
       end = new Date(start.getTime() + 60 * 60 * 1000);
     }
 
-    // Safety check for valid dates
     if (isNaN(start.getTime())) start = new Date();
     if (isNaN(end.getTime()) || end <= start) end = new Date(start.getTime() + 30 * 60 * 1000);
 
@@ -69,9 +70,9 @@ function generateIcs(tasks = [], options = {}) {
       `[TaskTracker-ID: ${task.id}]`;
 
     const event = calendar.createEvent({
-      id: `tasktracker-${task.id}`,
-      start: isAllDay ? start : start,
-      end: isAllDay ? end : end,
+      id: `taskflow-${task.id}`,
+      start: start,
+      end: end,
       allDay: isAllDay,
       summary: task.status === 'done' ? `✓ [DONE] ${task.title}` : task.title,
       description: description,
@@ -80,11 +81,10 @@ function generateIcs(tasks = [], options = {}) {
       categories: task.category ? [{ name: task.category }] : undefined,
     });
 
-    // Add reminder alarm if requested
     if (task.reminderMinutesBefore !== undefined && task.reminderMinutesBefore >= 0) {
       event.createAlarm({
         type: 'display',
-        trigger: task.reminderMinutesBefore * 60, // in seconds before start
+        trigger: task.reminderMinutesBefore * 60,
         description: `Reminder: ${task.title}`,
       });
     }
@@ -94,7 +94,51 @@ function generateIcs(tasks = [], options = {}) {
 }
 
 /**
- * Direct AppleScript execution to sync tasks with macOS Calendar.app
+ * Execute AppleScript cleanly via stdin with timeout
+ */
+function runAppleScript(script, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('osascript', ['-s', 's']);
+    let stdout = '';
+    let stderr = '';
+    let isDone = false;
+
+    const timer = setTimeout(() => {
+      if (!isDone) {
+        isDone = true;
+        proc.kill();
+        reject(new Error('AppleScript execution timed out'));
+      }
+    }, timeoutMs);
+
+    proc.stdout.on('data', (data) => { stdout += data; });
+    proc.stderr.on('data', (data) => { stderr += data; });
+
+    proc.on('close', (code) => {
+      if (isDone) return;
+      isDone = true;
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(stderr.trim() || `AppleScript exited with code ${code}`));
+      }
+    });
+
+    proc.on('error', (err) => {
+      if (isDone) return;
+      isDone = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    proc.stdin.write(script);
+    proc.stdin.end();
+  });
+}
+
+/**
+ * Sync tasks with Apple Calendar using AppleScript, with fallback to opening .ics/WebCal
  */
 async function syncTasksWithAppleCalendar(tasks = []) {
   if (process.platform !== 'darwin') {
@@ -106,6 +150,15 @@ async function syncTasksWithAppleCalendar(tasks = []) {
 
   const syncableTasks = tasks.filter(t => t.syncWithCalendar !== false && (t.dueDate || t.startTime));
 
+  // Always write a fresh .ics file to temp directory
+  try {
+    const icsContent = generateIcs(tasks);
+    const tempIcsPath = path.join(os.tmpdir(), 'TaskFlow.ics');
+    fs.writeFileSync(tempIcsPath, icsContent, 'utf8');
+  } catch (e) {
+    console.error('Failed to write temp .ics:', e);
+  }
+
   if (syncableTasks.length === 0) {
     return {
       success: true,
@@ -115,9 +168,6 @@ async function syncTasksWithAppleCalendar(tasks = []) {
   }
 
   try {
-    // Generate an AppleScript that:
-    // 1. Checks or creates the "Task Tracker Pro" calendar
-    // 2. Iterates tasks and either updates existing event or creates new one
     const scriptParts = [
       `tell application "Calendar"`,
       `  set targetCalName to "${CALENDAR_NAME}"`,
@@ -143,7 +193,6 @@ async function syncTasksWithAppleCalendar(tasks = []) {
       
       const safeDesc = `Status: ${task.status} | Priority: ${task.priority} | TaskID: ${task.id}\\n${(task.description || '').replace(/["\\]/g, '\\$&').replace(/\n/g, '\\n')}`;
 
-      // AppleScript dates: "Month Day, Year Hours:Minutes:Seconds"
       const formatAppleDate = (d) => {
         const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const m = months[d.getMonth()];
@@ -160,14 +209,10 @@ async function syncTasksWithAppleCalendar(tasks = []) {
       const taskIdTag = `TaskTracker-ID: ${task.id}`;
 
       scriptParts.push(
-        `  -- Sync task: ${task.id}`,
-        `  set existingEvent to missing value`,
         `  tell targetCal`,
         `    set allEvents to (every event whose description contains "${taskIdTag}")`,
         `    if (count of allEvents) > 0 then`,
         `      set existingEvent to first item of allEvents`,
-        `    end if`,
-        `    if existingEvent is not missing value then`,
         `      set summary of existingEvent to "${safeTitle}"`,
         `      set start date of existingEvent to ${startDateApple}`,
         `      set end date of existingEvent to ${endDateApple}`,
@@ -182,22 +227,39 @@ async function syncTasksWithAppleCalendar(tasks = []) {
     scriptParts.push(`end tell`);
 
     const fullScript = scriptParts.join('\n');
-    
-    // Execute AppleScript via osascript
-    await execAsync(`osascript -e '${fullScript.replace(/'/g, "'\\''")}'`);
+    await runAppleScript(fullScript, 6000);
 
     return {
       success: true,
+      method: 'applescript',
       message: `Successfully synchronized ${syncableTasks.length} task(s) to "${CALENDAR_NAME}" in macOS Calendar!`,
       syncedCount: syncableTasks.length,
     };
   } catch (err) {
-    console.error('AppleScript sync error:', err);
-    return {
-      success: false,
-      error: err.message || 'Failed to sync with macOS Calendar via AppleScript.',
-      details: 'Please grant Calendar permissions to Task Tracker Pro if prompted by macOS, or use the 1-Click WebCal live subscription link.',
-    };
+    console.warn('Direct AppleScript sync notice, activating native calendar open fallback:', err.message);
+
+    // Automatic Fallback: Open generated .ics in Apple Calendar
+    try {
+      const tempIcsPath = path.join(os.tmpdir(), 'TaskFlow.ics');
+      if (fs.existsSync(tempIcsPath)) {
+        await execAsync(`open -a Calendar "${tempIcsPath}"`);
+      } else {
+        await execAsync('open -a Calendar');
+      }
+      return {
+        success: true,
+        method: 'native-open',
+        message: `Opened ${syncableTasks.length} task(s) directly in Apple Calendar!`,
+        syncedCount: syncableTasks.length,
+        details: 'Import into your preferred calendar or subscribe to the live feed for auto-refresh.',
+      };
+    } catch (openErr) {
+      return {
+        success: false,
+        error: openErr.message,
+        details: 'Could not launch Apple Calendar. You can use the WebCal 1-click subscription link.',
+      };
+    }
   }
 }
 
@@ -216,9 +278,46 @@ async function openAppleCalendar() {
   return { success: false, error: 'Platform is not macOS' };
 }
 
+/**
+ * 1-Click Connect Calendar: launches Apple Calendar and triggers subscription or import
+ */
+async function connectCalendar(tasks = []) {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'Platform is not macOS' };
+  }
+
+  try {
+    // 1. Write fresh .ics to temp
+    const icsContent = generateIcs(tasks);
+    const tempIcsPath = path.join(os.tmpdir(), 'TaskFlow.ics');
+    fs.writeFileSync(tempIcsPath, icsContent, 'utf8');
+
+    // 2. Open Apple Calendar
+    await execAsync('open -a Calendar');
+
+    // 3. Try to subscribe to the WebCal feed
+    const webcalUrl = 'webcal://localhost:52884/calendar.ics';
+    await execAsync(`open "${webcalUrl}"`).catch(() => {
+      // If webcal protocol fails, open the .ics file directly
+      return execAsync(`open -a Calendar "${tempIcsPath}"`);
+    });
+
+    return {
+      success: true,
+      message: 'Connected to macOS Calendar! Check the Apple Calendar subscription prompt.',
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message,
+    };
+  }
+}
+
 module.exports = {
   CALENDAR_NAME,
   generateIcs,
   syncTasksWithAppleCalendar,
   openAppleCalendar,
+  connectCalendar,
 };

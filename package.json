@@ -5,11 +5,11 @@
   "description": "Advanced task tracking system with macOS Calendar integration",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"electron .\"",
+    "start": "npm run build && electron .",
+    "dev": "concurrently -k \"vite\" \"cross-env NODE_ENV=development electron .\"",
     "dev:vite": "vite",
-    "dev:electron": "electron .",
-    "build": "vite build",
-    "start": "electron ."
+    "dev:electron": "cross-env NODE_ENV=development electron .",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "",

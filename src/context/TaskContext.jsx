@@ -267,6 +267,31 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  // 1-Click Connect Calendar
+  const connectCalendar = async () => {
+    if (!isElectron) {
+      window.open(serverInfo.webcalUrl, '_blank');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const res = await window.electronAPI.connectCalendar();
+      setLastSyncTime(new Date());
+      if (res.success) {
+        setSyncNotice({ type: 'success', message: res.message || 'Connected to Apple Calendar!' });
+      } else {
+        setSyncNotice({ type: 'warning', message: res.error || 'Calendar notice' });
+      }
+    } catch (err) {
+      console.error('Error connecting calendar:', err);
+      setSyncNotice({ type: 'error', message: 'Failed to connect with macOS Calendar.' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncNotice(null), 6000);
+    }
+  };
+
   // Subscribe via WebCal
   const subscribeWebcal = async () => {
     if (isElectron) {
@@ -372,6 +397,7 @@ export const TaskProvider = ({ children }) => {
         lastSyncTime,
         syncNotice,
         serverInfo,
+        connectCalendar,
         syncAppleCalendar,
         openAppleCalendar,
         subscribeWebcal,
