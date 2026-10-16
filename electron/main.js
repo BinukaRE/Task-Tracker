@@ -281,6 +281,9 @@ app.whenReady().then(async () => {
   createMainWindow();
   createTray();
 
+  // Start Background Calendar Auto-Refresh Engine (Runs automatically every 10 minutes)
+  startCalendarAutoSync();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
@@ -320,6 +323,100 @@ ipcMain.handle('settings:save', async (_event, newSettings) => {
   return { success: true };
 });
 
+// ----------------------------------------------------
+// Special Calendar Link & 10-Minute Auto-Refresh Engine
+// ----------------------------------------------------
+let autoSyncInterval = null;
+const AUTO_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+const autoSyncState = {
+  enabled: true,
+  intervalMinutes: 10,
+  lastSyncTime: null,
+  nextSyncTime: null,
+  isSyncing: false,
+  totalEventsTracked: 0,
+};
+
+async function executeCalendarSync(source = 'auto') {
+  if (autoSyncState.isSyncing) {
+    return { inProgress: true, message: 'Calendar sync is already in progress.' };
+  }
+
+  autoSyncState.isSyncing = true;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('calendar:sync-status', autoSyncState);
+  }
+
+  try {
+    const tasks = tasksStore.get('tasks') || [];
+    // Deep 180-day past and 180-day future sync (covers full academic year & active work)
+    const result = await scrapeAppleCalendarEvents(tasks, { pastDays: 180, rangeDays: 180 });
+    
+    autoSyncState.lastSyncTime = new Date().toISOString();
+    autoSyncState.nextSyncTime = new Date(Date.now() + AUTO_SYNC_INTERVAL_MS).toISOString();
+
+    if (result.success && result.newTasks && result.newTasks.length > 0) {
+      const updated = [...result.newTasks, ...tasks];
+      tasksStore.set('tasks', updated);
+      autoSyncState.totalEventsTracked = updated.filter(t => t.calendarEventUid).length;
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('calendar:auto-refreshed', {
+          ...result,
+          source,
+          timestamp: autoSyncState.lastSyncTime,
+          nextSyncTime: autoSyncState.nextSyncTime,
+          totalTracked: autoSyncState.totalEventsTracked,
+        });
+      }
+
+      if (Notification.isSupported() && source === 'auto') {
+        new Notification({
+          title: 'Task Flow • Calendar Auto-Refresh',
+          body: `Imported ${result.newTasks.length} new event(s) from Apple Calendar.`,
+        }).show();
+      }
+    } else if (mainWindow && !mainWindow.isDestroyed()) {
+      autoSyncState.totalEventsTracked = (tasksStore.get('tasks') || []).filter(t => t.calendarEventUid).length;
+      mainWindow.webContents.send('calendar:auto-refreshed', {
+        success: true,
+        newTasks: [],
+        source,
+        message: 'All calendar events are up to date.',
+        timestamp: autoSyncState.lastSyncTime,
+        nextSyncTime: autoSyncState.nextSyncTime,
+        totalTracked: autoSyncState.totalEventsTracked,
+      });
+    }
+
+    return result;
+  } catch (err) {
+    console.warn('Auto-sync error:', err.message);
+    return { success: false, error: err.message };
+  } finally {
+    autoSyncState.isSyncing = false;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('calendar:sync-status', autoSyncState);
+    }
+  }
+}
+
+function startCalendarAutoSync() {
+  if (autoSyncInterval) clearInterval(autoSyncInterval);
+  autoSyncState.nextSyncTime = new Date(Date.now() + AUTO_SYNC_INTERVAL_MS).toISOString();
+
+  // Schedule every 10 minutes automatically
+  autoSyncInterval = setInterval(() => {
+    executeCalendarSync('auto');
+  }, AUTO_SYNC_INTERVAL_MS);
+
+  // Initial auto-sync 3 seconds after window launch
+  setTimeout(() => {
+    executeCalendarSync('startup');
+  }, 3000);
+}
+
 // PURE READ-ONLY SCRAPING: Scrapes events from Apple Calendar without modifying or editing calendar
 ipcMain.handle('calendar:scrape', async (_event, options) => {
   const tasks = tasksStore.get('tasks') || [];
@@ -329,6 +426,14 @@ ipcMain.handle('calendar:scrape', async (_event, options) => {
     tasksStore.set('tasks', updated);
   }
   return result;
+});
+
+ipcMain.handle('calendar:getAutoSyncStatus', () => {
+  return autoSyncState;
+});
+
+ipcMain.handle('calendar:forceAutoRefresh', async () => {
+  return await executeCalendarSync('manual');
 });
 
 ipcMain.handle('calendar:openApple', async () => {

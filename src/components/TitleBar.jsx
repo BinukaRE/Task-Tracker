@@ -11,6 +11,7 @@ export default function TitleBar() {
     isScraping,
     setIsCalendarModalOpen,
     tasks,
+    autoSyncState,
   } = useTasks();
 
   const activeCount = tasks.filter(t => t.status !== 'done').length;
@@ -60,18 +61,35 @@ export default function TitleBar() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2 titlebar-no-drag">
-        {/* Scrape Calendar Button */}
+        {/* 10-Minute Auto-Sync Live Status Pill */}
+        <div
+          onClick={() => setIsCalendarModalOpen(true)}
+          className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium cursor-pointer hover:bg-emerald-900/30 transition-all shadow-sm"
+          title={`10-Minute Auto-Sync Engine Active. Last Sync: ${
+            autoSyncState?.lastSyncTime
+              ? new Date(autoSyncState.lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'Recent'
+          }`}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>Auto-Sync 10m</span>
+        </div>
+
+        {/* Scrape All Calendar Events Button */}
         <button
-          onClick={() => scrapeCalendarEvents({ pastDays: 60, rangeDays: 90 })}
+          onClick={() => scrapeCalendarEvents({ pastDays: 180, rangeDays: 180 })}
           disabled={isScraping}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700/60 bg-slate-900/80 hover:bg-slate-800 text-slate-200 transition-all ${
             isScraping ? 'opacity-80 cursor-wait bg-cyan-950/40 border-cyan-500/40 text-cyan-300' : ''
           }`}
-          title="Scrape new events from Apple Calendar (Read-Only, never edits calendar)"
+          title="Deep Scrape all events from Apple Calendar (Past 180 Days + Next 180 Days)"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isScraping ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">
-            {isScraping ? 'Scraping Calendar...' : 'Scrape Calendar'}
+            {isScraping ? 'Scraping All Events...' : 'Scrape All Events'}
           </span>
         </button>
 

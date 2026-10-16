@@ -142,9 +142,9 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
     };
   }
 
-  // Generous rolling window: default past 60 days to next 90 days (captures semester exams and active schedules)
-  const pastDays = options.pastDays !== undefined ? Number(options.pastDays) : 60;
-  const futureDays = options.rangeDays !== undefined ? Number(options.rangeDays) : 90;
+  // Comprehensive rolling window: default past 180 days to next 180 days (captures full academic year & all semester data)
+  const pastDays = options.pastDays !== undefined ? Number(options.pastDays) : 180;
+  const futureDays = options.rangeDays !== undefined ? Number(options.rangeDays) : 180;
   const targetCalendarName = options.targetCalendar || null;
 
   // Track existing IDs and titles so we NEVER duplicate or alter existing tasks
@@ -154,7 +154,7 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
   try {
     // 1. Fetch all calendar names
     const getNamesScript = `tell application "Calendar" to get name of every calendar`;
-    const namesRaw = await runAppleScript(getNamesScript, 6000);
+    const namesRaw = await runAppleScript(getNamesScript, 8000);
     const cleanedNames = namesRaw.replace(/^"|"$/g, '').trim();
     const allCalNames = cleanedNames.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -171,7 +171,7 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
     const discoveredEvents = [];
     const newTasks = [];
 
-    // 2. Iterate each user calendar safely with individual 10s timeouts
+    // 2. Iterate each user calendar safely with 25s timeouts for remote university CalDAV sync
     for (let i = 1; i <= allCalNames.length; i++) {
       const calName = allCalNames[i - 1];
       const calLower = calName.toLowerCase();
@@ -200,8 +200,11 @@ tell application "Calendar"
         set evTitle to summary of ev
         set evStart to (start date of ev as «class isot» as string)
         set evEnd to (end date of ev as «class isot» as string)
-        set evDesc to description of ev
-        if evDesc is missing value then set evDesc to ""
+        set evDesc to ""
+        try
+          set evDesc to description of ev
+          if evDesc is missing value then set evDesc to ""
+        end try
         set end of res to (evUid & ":::SEP:::" & evTitle & ":::SEP:::" & evStart & ":::SEP:::" & evEnd & ":::SEP:::" & evDesc)
       end try
     end repeat
@@ -212,7 +215,7 @@ end tell
 `;
 
       try {
-        const rawOutput = await runAppleScript(calScript, 15000);
+        const rawOutput = await runAppleScript(calScript, 25000);
         if (rawOutput && rawOutput.length > 0) {
           const rows = rawOutput.split(':::ROW:::').filter(r => r.trim().length > 0);
 

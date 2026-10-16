@@ -30,6 +30,8 @@ export default function Sidebar() {
     isScraping,
     setIsCalendarModalOpen,
     lastScrapeTime,
+    autoSyncState,
+    forceAutoRefresh,
   } = useTasks();
 
   const navItems = [
@@ -169,34 +171,39 @@ export default function Sidebar() {
               </div>
               <div>
                 <div className="text-xs font-semibold text-slate-200">Apple Calendar</div>
-                <div className="text-[10px] text-cyan-400 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-                  Read-Only Scraper
+                <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  10m Auto-Link
                 </div>
               </div>
             </div>
             <button
               onClick={() => setIsCalendarModalOpen(true)}
               className="text-slate-400 hover:text-indigo-400 transition-colors p-1"
-              title="Open Calendar Scraper & Manual"
+              title="Open Calendar Link Engine & Manual"
             >
               <Zap className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="text-[10px] text-slate-400 mb-2.5">
-            {lastScrapeTime
-              ? `Last scraped: ${new Date(lastScrapeTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-              : 'Pulls events from Apple Calendar'}
+          <div className="text-[10px] text-slate-400 mb-2.5 flex items-center justify-between">
+            <span>
+              {autoSyncState?.lastSyncTime || lastScrapeTime
+                ? `Sync: ${new Date(autoSyncState?.lastSyncTime || lastScrapeTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : '10m auto-refresh ready'}
+            </span>
+            <span className="text-[9px] text-emerald-400/90 font-mono bg-emerald-500/10 px-1 rounded">
+              Active
+            </span>
           </div>
 
           <button
-            onClick={() => scrapeCalendarEvents()}
-            disabled={isScraping}
+            onClick={() => scrapeCalendarEvents({ rangeDays: 180, pastDays: 180 })}
+            disabled={isScraping || autoSyncState?.isSyncing}
             className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-xs font-bold text-white shadow-md shadow-cyan-600/20 transition-all active:scale-95 mb-2 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isScraping ? 'animate-spin' : ''}`} />
-            <span>{isScraping ? 'Scraping Events...' : 'Scrape Calendar Events'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${(isScraping || autoSyncState?.isSyncing) ? 'animate-spin' : ''}`} />
+            <span>{(isScraping || autoSyncState?.isSyncing) ? 'Scraping All Events...' : 'Scrape All Events'}</span>
           </button>
 
           <div className="grid grid-cols-2 gap-1.5">
@@ -212,7 +219,7 @@ export default function Sidebar() {
               className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-[11px] font-medium text-indigo-300 transition-all border border-indigo-500/30"
               title="View Scraper details & Manual"
             >
-              <span>Manual</span>
+              <span>Link Engine</span>
             </button>
           </div>
         </div>

@@ -33,6 +33,14 @@ export const TaskProvider = ({ children }) => {
   const [scrapeNotice, setScrapeNotice] = useState(null);
   const [scrapeStats, setScrapeStats] = useState({ totalScraped: 0, lastCount: 0 });
   const [calendarPermission, setCalendarPermission] = useState({ checked: false, authorized: false });
+  const [autoSyncState, setAutoSyncState] = useState({
+    enabled: true,
+    intervalMinutes: 10,
+    lastSyncTime: null,
+    nextSyncTime: null,
+    isSyncing: false,
+    totalEventsTracked: 0,
+  });
 
   // Pomodoro Focus state
   const [activePomodoroTaskId, setActivePomodoroTaskId] = useState(null);
@@ -86,10 +94,38 @@ export const TaskProvider = ({ children }) => {
           setTasks((prev) => [...res.newTasks, ...prev]);
         }
       });
+      const unsubAuto = window.electronAPI.onCalendarAutoRefreshed?.((res) => {
+        if (res.newTasks && res.newTasks.length > 0) {
+          setTasks((prev) => [...res.newTasks, ...prev]);
+          setScrapeStats((prev) => ({
+            totalScraped: prev.totalScraped + res.newTasks.length,
+            lastCount: res.newTasks.length,
+          }));
+          setScrapeNotice({
+            type: 'success',
+            message: `Calendar Auto-Refreshed: ${res.newTasks.length} new event(s) imported.`,
+            details: 'Next 10-minute auto-refresh scheduled',
+          });
+        }
+        if (res.timestamp) {
+          setLastScrapeTime(new Date(res.timestamp));
+        }
+      });
+      const unsubStatus = window.electronAPI.onCalendarSyncStatus?.((status) => {
+        if (status) setAutoSyncState((prev) => ({ ...prev, ...status }));
+      });
+
+      // Initial auto-sync status check
+      window.electronAPI.getAutoSyncStatus?.().then((status) => {
+        if (status) setAutoSyncState((prev) => ({ ...prev, ...status }));
+      });
+
       return () => {
         if (unsubQuick) unsubQuick();
         if (unsubScrape) unsubScrape();
         if (unsubScraped) unsubScraped();
+        if (unsubAuto) unsubAuto();
+        if (unsubStatus) unsubStatus();
       };
     }
   }, []);
@@ -268,6 +304,22 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  // Trigger immediate 10-Minute Auto-Sync Link refresh
+  const forceAutoRefresh = async () => {
+    if (isElectron && window.electronAPI.forceAutoRefresh) {
+      setIsScraping(true);
+      try {
+        const res = await window.electronAPI.forceAutoRefresh();
+        if (res?.newTasks && res.newTasks.length > 0) {
+          setTasks((prev) => [...res.newTasks, ...prev]);
+        }
+        return res;
+      } finally {
+        setIsScraping(false);
+      }
+    }
+  };
+
   // Modal helpers
   const openCreateModal = (preset = {}) => {
     setSelectedTask({
@@ -356,6 +408,8 @@ export const TaskProvider = ({ children }) => {
         calendarPermission,
         checkCalendarPermission,
         openPrivacySettings,
+        autoSyncState,
+        forceAutoRefresh,
         // Pomodoro
         activePomodoroTaskId,
         setActivePomodoroTaskId,

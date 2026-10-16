@@ -29,10 +29,12 @@ export default function CalendarSyncModal() {
     calendarPermission,
     checkCalendarPermission,
     openPrivacySettings,
+    autoSyncState,
+    forceAutoRefresh,
   } = useTasks();
 
   const [activeTab, setActiveTab] = useState('scraper'); // 'scraper' | 'manual'
-  const [rangeDays, setRangeDays] = useState(90);
+  const [rangeDays, setRangeDays] = useState(180);
   const [selectedCal, setSelectedCal] = useState('all');
 
   if (!isCalendarModalOpen) return null;
@@ -42,9 +44,18 @@ export default function CalendarSyncModal() {
   const handleScrape = () => {
     scrapeCalendarEvents({
       rangeDays: Number(rangeDays),
-      pastDays: Math.max(60, Math.round(Number(rangeDays) * 0.7)),
+      pastDays: Math.max(90, Math.round(Number(rangeDays) * 0.9)),
       targetCalendar: selectedCal === 'all' ? null : selectedCal,
     });
+  };
+
+  const formatTime = (ts) => {
+    if (!ts) return 'Pending...';
+    try {
+      return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch {
+      return 'Active';
+    }
   };
 
   return (
@@ -58,10 +69,14 @@ export default function CalendarSyncModal() {
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                Apple Calendar Scraper & Manual
+                Apple Calendar Link Engine
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  10m Auto-Refresh
+                </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Read-only event scraper from macOS Apple Calendar (Calendar.app)
+                Continuous read-only background link with macOS Apple Calendar (Calendar.app)
               </p>
             </div>
           </div>
@@ -84,7 +99,7 @@ export default function CalendarSyncModal() {
             }`}
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />
-            <span>Event Scraper</span>
+            <span>Calendar Link & Scraper</span>
           </button>
           <button
             onClick={() => setActiveTab('manual')}
@@ -103,6 +118,55 @@ export default function CalendarSyncModal() {
         <div className="flex-1 overflow-y-auto py-4 space-y-5 pr-1">
           {activeTab === 'scraper' ? (
             <>
+              {/* 10-Minute Automatic Background Link Card */}
+              <div className="p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-cyan-950/30 shadow-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                        10-Minute Automatic Calendar Link
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-normal border border-emerald-500/30">
+                          Active
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Automatically scans Apple Calendar every 10 minutes and imports newly added events.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => forceAutoRefresh()}
+                    disabled={autoSyncState?.isSyncing || isScraping}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${autoSyncState?.isSyncing ? 'animate-spin' : ''}`} />
+                    <span>{autoSyncState?.isSyncing ? 'Refreshing...' : 'Force Refresh Now'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 pt-1 text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                    <div className="text-slate-400 text-[10px] uppercase font-semibold">Frequency</div>
+                    <div className="text-slate-200 font-bold mt-0.5">Every 10 Minutes</div>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                    <div className="text-slate-400 text-[10px] uppercase font-semibold">Last Sync</div>
+                    <div className="text-emerald-400 font-mono font-medium mt-0.5">
+                      {formatTime(autoSyncState?.lastSyncTime || lastScrapeTime)}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                    <div className="text-slate-400 text-[10px] uppercase font-semibold">Next Scheduled Sync</div>
+                    <div className="text-cyan-400 font-mono font-medium mt-0.5">
+                      {formatTime(autoSyncState?.nextSyncTime)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Strict Read-Only Guarantee Banner */}
               <div className="p-3.5 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/30 via-slate-900/50 to-indigo-950/30 flex items-start gap-3">
                 <ShieldCheck className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
@@ -164,10 +228,10 @@ export default function CalendarSyncModal() {
                   <div className="flex items-center gap-2">
                     <ArrowDownToLine className="w-4 h-4 text-cyan-400" />
                     <h4 className="text-xs font-bold text-slate-200">
-                      Scrape New Events into Task Flow
+                      Scrape All Events into Task Flow
                     </h4>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-400">
+                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                     {scrapedTasksCount} imported tasks
                   </span>
                 </div>
@@ -182,10 +246,10 @@ export default function CalendarSyncModal() {
                       onChange={(e) => setRangeDays(Number(e.target.value))}
                       className="w-full px-3 py-1.5 text-xs rounded-lg glass-input text-slate-200 focus:outline-none"
                     >
-                      <option value={90}>Past 60 Days + Next 90 Days (Recommended)</option>
-                      <option value={180}>Past 90 Days + Next 180 Days (Full Year)</option>
+                      <option value={180}>Past 180 Days + Next 180 Days (Full Year - Recommended)</option>
+                      <option value={365}>Past 1 Year + Next 1 Year (All Data)</option>
+                      <option value={90}>Past 90 Days + Next 90 Days</option>
                       <option value={30}>Past 30 Days + Next 30 Days</option>
-                      <option value={365}>All Events (Past 1 Year to Next 1 Year)</option>
                     </select>
                   </div>
 
@@ -210,11 +274,11 @@ export default function CalendarSyncModal() {
 
                 <button
                   onClick={handleScrape}
-                  disabled={isScraping}
+                  disabled={isScraping || autoSyncState?.isSyncing}
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-cyan-600/20 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isScraping ? 'animate-spin' : ''}`} />
-                  <span>{isScraping ? 'Scraping Apple Calendar...' : 'Scrape Calendar Events Now'}</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${(isScraping || autoSyncState?.isSyncing) ? 'animate-spin' : ''}`} />
+                  <span>{(isScraping || autoSyncState?.isSyncing) ? 'Scraping All Calendar Events...' : 'Scrape All Calendar Events Now'}</span>
                 </button>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">

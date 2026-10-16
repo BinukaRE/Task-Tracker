@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkCalendarPermission: () => ipcRenderer.invoke('calendar:checkPermission'),
   openAppleCalendar: () => ipcRenderer.invoke('calendar:openApple'),
   openPrivacySettings: (target) => ipcRenderer.invoke('calendar:openPrivacySettings', target),
+  getAutoSyncStatus: () => ipcRenderer.invoke('calendar:getAutoSyncStatus'),
+  forceAutoRefresh: () => ipcRenderer.invoke('calendar:forceAutoRefresh'),
 
   // Window Controls
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
@@ -38,5 +40,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const subscription = (_event, value) => callback(value);
     ipcRenderer.on('action:scraped', subscription);
     return () => ipcRenderer.removeListener('action:scraped', subscription);
+  },
+  onCalendarAutoRefreshed: (callback) => {
+    const subscription = (_event, value) => callback(value);
+    ipcRenderer.on('calendar:auto-refreshed', subscription);
+    return () => ipcRenderer.removeListener('calendar:auto-refreshed', subscription);
+  },
+  onCalendarSyncStatus: (callback) => {
+    const subscription = (_event, value) => callback(value);
+    ipcRenderer.on('calendar:sync-status', subscription);
+    return () => ipcRenderer.removeListener('calendar:sync-status', subscription);
   },
 });
