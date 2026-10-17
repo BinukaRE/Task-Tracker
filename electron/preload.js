@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scrapeCalendarEvents: (options) => ipcRenderer.invoke('calendar:scrape', options),
   checkCalendarPermission: () => ipcRenderer.invoke('calendar:checkPermission'),
   openAppleCalendar: () => ipcRenderer.invoke('calendar:openApple'),
+  closeAppleCalendar: () => ipcRenderer.invoke('calendar:closeApple'),
   getAvailableCalendars: () => ipcRenderer.invoke('calendar:getCalendars'),
   openPrivacySettings: (target) => ipcRenderer.invoke('calendar:openPrivacySettings', target),
   getAutoSyncStatus: () => ipcRenderer.invoke('calendar:getAutoSyncStatus'),

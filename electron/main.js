@@ -6,6 +6,7 @@ const {
   scrapeAppleCalendarEvents,
   checkCalendarPermission,
   getAvailableCalendars,
+  closeCalendarApp,
   openAppleCalendar,
   openPrivacySettings,
 } = require('./calendar-sync');
@@ -455,6 +456,7 @@ async function executeCalendarSync(source = 'auto') {
     return { success: false, error: err.message };
   } finally {
     autoSyncState.isSyncing = false;
+    await closeCalendarApp();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('calendar:sync-status', autoSyncState);
     }
@@ -500,6 +502,10 @@ ipcMain.handle('calendar:setAutoSyncInterval', async (_event, minutes) => {
 
 ipcMain.handle('calendar:openApple', async () => {
   return await openAppleCalendar();
+});
+
+ipcMain.handle('calendar:closeApple', async () => {
+  return await closeCalendarApp();
 });
 
 ipcMain.handle('calendar:getCalendars', async () => {

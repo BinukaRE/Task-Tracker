@@ -16,6 +16,20 @@ function isCalendarAppRunning() {
   }
 }
 
+/**
+ * Automatically close Calendar application if it is running
+ */
+async function closeCalendarApp() {
+  if (process.platform !== 'darwin') return;
+  try {
+    if (isCalendarAppRunning()) {
+      await runAppleScript('tell application "Calendar" to quit', 3000);
+    }
+  } catch (err) {
+    // Ignore error if process already exited
+  }
+}
+
 // System calendars that should not be scraped as user tasks
 const SYSTEM_CALENDARS = [
   'birthdays',
@@ -168,6 +182,8 @@ end tell
         ? 'Not authorized to access Apple Calendar (-1743). Please grant permission in System Settings.'
         : errMsg,
     };
+  } finally {
+    await closeCalendarApp();
   }
 }
 
@@ -213,6 +229,8 @@ end tell
     return result;
   } catch (err) {
     return [];
+  } finally {
+    await closeCalendarApp();
   }
 }
 
@@ -289,7 +307,9 @@ tell application "Calendar"
       end try
     end if
   end repeat
-  ${!wasRunning ? 'quit' : ''}
+  try
+    quit
+  end try
   set AppleScript's text item delimiters to linefeed
   return results as text
 end tell
@@ -391,6 +411,8 @@ end tell
         ? 'macOS blocked Task Flow from accessing Calendar (Error -1743). Please open System Settings > Privacy & Security > Automation and enable Calendar.'
         : `Could not access Apple Calendar: ${errMsg}.`,
     };
+  } finally {
+    await closeCalendarApp();
   }
 }
 
@@ -429,6 +451,7 @@ module.exports = {
   scrapeAppleCalendarEvents,
   checkCalendarPermission,
   getAvailableCalendars,
+  closeCalendarApp,
   openAppleCalendar,
   openPrivacySettings,
 };
