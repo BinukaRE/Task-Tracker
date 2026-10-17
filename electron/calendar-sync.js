@@ -1,7 +1,20 @@
-const { exec, spawn } = require('child_process');
+const { exec, spawn, execSync } = require('child_process');
 const util = require('util');
 
 const execAsync = util.promisify(exec);
+
+/**
+ * Check if macOS Calendar.app process is already running
+ */
+function isCalendarAppRunning() {
+  if (process.platform !== 'darwin') return false;
+  try {
+    execSync('pgrep -x "Calendar"', { stdio: 'ignore' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 // System calendars that should not be scraped as user tasks
 const SYSTEM_CALENDARS = [
@@ -109,12 +122,16 @@ async function checkCalendarPermission() {
     return { authorized: false, isMac: false, message: 'Only macOS supports Apple Calendar' };
   }
 
+  const wasRunning = isCalendarAppRunning();
   const script = `
 tell application "Calendar"
+  ${!wasRunning ? 'launch' : ''}
   try
     set calCount to count of calendars
+    ${!wasRunning ? 'quit' : ''}
     return "OK:" & (calCount as string)
   on error errMsg number errNum
+    ${!wasRunning ? 'try\nquit\nend try' : ''}
     return "ERR:" & (errNum as string) & ":" & errMsg
   end try
 end tell
@@ -160,8 +177,22 @@ end tell
 async function getAvailableCalendars() {
   if (process.platform !== 'darwin') return [];
   try {
-    const script = `tell application "Calendar" to get name of every calendar`;
-    const namesRaw = await runAppleScript(script, 5000);
+    const wasRunning = isCalendarAppRunning();
+    const script = `
+tell application "Calendar"
+  ${!wasRunning ? 'launch' : ''}
+  try
+    set cNames to (name of every calendar)
+    ${!wasRunning ? 'quit' : ''}
+    set AppleScript's text item delimiters to ","
+    return cNames as text
+  on error
+    ${!wasRunning ? 'try\nquit\nend try' : ''}
+    return ""
+  end try
+end tell
+`;
+    const namesRaw = await runAppleScript(script, 6000);
     const cleaned = namesRaw.replace(/^"|"$/g, '').trim();
     if (!cleaned) return [];
     const all = cleaned.split(',').map(s => s.trim()).filter(Boolean);
@@ -217,9 +248,10 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
 
   try {
     const targetFilter = targetCalendarName && targetCalendarName !== 'all' ? targetCalendarName.toLowerCase().trim() : null;
-
+    const wasRunning = isCalendarAppRunning();
     const script = `
 tell application "Calendar"
+  ${!wasRunning ? 'launch' : ''}
   set results to {}
   set dStart to (current date) - (${pastDays} * days)
   set dEnd to (current date) + (${futureDays} * days)
@@ -257,6 +289,7 @@ tell application "Calendar"
       end try
     end if
   end repeat
+  ${!wasRunning ? 'quit' : ''}
   set AppleScript's text item delimiters to linefeed
   return results as text
 end tell
