@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTasks } from '../../context/TaskContext';
 import {
   X,
@@ -36,6 +36,17 @@ export default function CalendarSyncModal() {
   const [activeTab, setActiveTab] = useState('scraper'); // 'scraper' | 'manual'
   const [rangeDays, setRangeDays] = useState(180);
   const [selectedCal, setSelectedCal] = useState('all');
+  const [availableCalendars, setAvailableCalendars] = useState([]);
+
+  useEffect(() => {
+    if (isCalendarModalOpen && window.electronAPI?.getAvailableCalendars) {
+      window.electronAPI.getAvailableCalendars().then((cals) => {
+        if (Array.isArray(cals) && cals.length > 0) {
+          setAvailableCalendars(cals);
+        }
+      }).catch(() => {});
+    }
+  }, [isCalendarModalOpen]);
 
   if (!isCalendarModalOpen) return null;
 
@@ -262,12 +273,20 @@ export default function CalendarSyncModal() {
                       onChange={(e) => setSelectedCal(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs rounded-lg glass-input text-slate-200 focus:outline-none"
                     >
-                      <option value="all">All Responsive Calendars (Auto)</option>
-                      <option value="s24016507@ousl.lk">s24016507@ousl.lk (University)</option>
-                      <option value="binukareshane@gmail.com">binukareshane@gmail.com (Personal)</option>
-                      <option value="Home">Home</option>
-                      <option value="Work">Work</option>
-                      <option value="Family">Family</option>
+                      <option value="all">All Calendars (Automatic Discovery)</option>
+                      {availableCalendars.length > 0 ? (
+                        availableCalendars.map((cName) => (
+                          <option key={cName} value={cName}>
+                            {cName}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="University Event Log">University Event Log</option>
+                          <option value="Home">Home</option>
+                          <option value="Work">Work</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>

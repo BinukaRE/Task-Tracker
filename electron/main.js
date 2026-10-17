@@ -5,6 +5,7 @@ const Store = require('./store');
 const {
   scrapeAppleCalendarEvents,
   checkCalendarPermission,
+  getAvailableCalendars,
   openAppleCalendar,
   openPrivacySettings,
 } = require('./calendar-sync');
@@ -456,6 +457,10 @@ ipcMain.handle('calendar:forceAutoRefresh', async () => {
 
 ipcMain.handle('calendar:openApple', async () => {
   return await openAppleCalendar();
+});
+
+ipcMain.handle('calendar:getCalendars', async () => {
+  return await getAvailableCalendars();
 });
 
 ipcMain.handle('calendar:checkPermission', async () => {

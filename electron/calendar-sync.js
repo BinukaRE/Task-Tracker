@@ -164,7 +164,22 @@ async function getAvailableCalendars() {
     const namesRaw = await runAppleScript(script, 5000);
     const cleaned = namesRaw.replace(/^"|"$/g, '').trim();
     if (!cleaned) return [];
-    return cleaned.split(',').map(s => s.trim()).filter(Boolean);
+    const all = cleaned.split(',').map(s => s.trim()).filter(Boolean);
+    const seen = new Set();
+    const result = [];
+    for (const name of all) {
+      const lower = name.toLowerCase();
+      if (
+        lower.includes('birthday') ||
+        lower.includes('siri') ||
+        lower.includes('reminder') ||
+        lower.includes('holiday')
+      ) continue;
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      result.push(name);
+    }
+    return result;
   } catch (err) {
     return [];
   }
