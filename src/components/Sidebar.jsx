@@ -172,15 +172,15 @@ export default function Sidebar() {
               <div>
                 <div className="text-xs font-semibold text-slate-200">Apple Calendar</div>
                 <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  10m Auto-Link
+                  {autoSyncState?.enabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>}
+                  <span>{autoSyncState?.enabled ? `${autoSyncState?.intervalMinutes || 10}m Auto-Link` : 'Manual Link'}</span>
                 </div>
               </div>
             </div>
             <button
               onClick={() => setIsCalendarModalOpen(true)}
               className="text-slate-400 hover:text-indigo-400 transition-colors p-1"
-              title="Open Calendar Link Engine & Manual"
+              title="Open Calendar Link Engine & Settings"
             >
               <Zap className="w-3.5 h-3.5" />
             </button>
@@ -190,10 +190,12 @@ export default function Sidebar() {
             <span>
               {autoSyncState?.lastSyncTime || lastScrapeTime
                 ? `Sync: ${new Date(autoSyncState?.lastSyncTime || lastScrapeTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                : '10m auto-refresh ready'}
+                : `${autoSyncState?.intervalMinutes || 10}m auto-refresh ready`}
             </span>
-            <span className="text-[9px] text-emerald-400/90 font-mono bg-emerald-500/10 px-1 rounded">
-              Active
+            <span className={`text-[9px] font-mono px-1 rounded ${
+              autoSyncState?.enabled ? 'text-emerald-400/90 bg-emerald-500/10' : 'text-slate-400 bg-slate-800'
+            }`}>
+              {autoSyncState?.enabled ? 'Active' : 'Paused'}
             </span>
           </div>
 

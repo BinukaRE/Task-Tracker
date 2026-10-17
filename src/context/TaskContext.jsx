@@ -304,7 +304,7 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  // Trigger immediate 10-Minute Auto-Sync Link refresh
+  // Trigger immediate Auto-Sync Link refresh
   const forceAutoRefresh = async () => {
     if (isElectron && window.electronAPI.forceAutoRefresh) {
       setIsScraping(true);
@@ -317,6 +317,24 @@ export const TaskProvider = ({ children }) => {
       } finally {
         setIsScraping(false);
       }
+    }
+  };
+
+  // Update and reschedule auto-sync interval
+  const updateAutoSyncInterval = async (minutes) => {
+    const mins = Number(minutes);
+    if (isElectron && window.electronAPI.setAutoSyncInterval) {
+      const updated = await window.electronAPI.setAutoSyncInterval(mins);
+      if (updated) {
+        setAutoSyncState(updated);
+      }
+    } else {
+      setAutoSyncState(prev => ({
+        ...prev,
+        enabled: mins > 0,
+        intervalMinutes: mins,
+        nextSyncTime: mins > 0 ? new Date(Date.now() + mins * 60 * 1000).toISOString() : null,
+      }));
     }
   };
 
@@ -410,6 +428,7 @@ export const TaskProvider = ({ children }) => {
         openPrivacySettings,
         autoSyncState,
         forceAutoRefresh,
+        updateAutoSyncInterval,
         // Pomodoro
         activePomodoroTaskId,
         setActivePomodoroTaskId,

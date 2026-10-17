@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAvailableCalendars: () => ipcRenderer.invoke('calendar:getCalendars'),
   openPrivacySettings: (target) => ipcRenderer.invoke('calendar:openPrivacySettings', target),
   getAutoSyncStatus: () => ipcRenderer.invoke('calendar:getAutoSyncStatus'),
+  setAutoSyncInterval: (minutes) => ipcRenderer.invoke('calendar:setAutoSyncInterval', minutes),
   forceAutoRefresh: () => ipcRenderer.invoke('calendar:forceAutoRefresh'),
 
   // Window Controls

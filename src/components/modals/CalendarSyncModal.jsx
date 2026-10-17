@@ -31,6 +31,7 @@ export default function CalendarSyncModal() {
     openPrivacySettings,
     autoSyncState,
     forceAutoRefresh,
+    updateAutoSyncInterval,
   } = useTasks();
 
   const [activeTab, setActiveTab] = useState('scraper'); // 'scraper' | 'manual'
@@ -81,9 +82,13 @@ export default function CalendarSyncModal() {
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 Apple Calendar Link Engine
-                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  10m Auto-Refresh
+                <span className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full border flex items-center gap-1.5 ${
+                  autoSyncState?.enabled
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}>
+                  {autoSyncState?.enabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>}
+                  {autoSyncState?.enabled ? `Every ${autoSyncState?.intervalMinutes || 10}m` : 'Manual Refresh'}
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
@@ -129,7 +134,7 @@ export default function CalendarSyncModal() {
         <div className="flex-1 overflow-y-auto py-4 space-y-5 pr-1">
           {activeTab === 'scraper' ? (
             <>
-              {/* 10-Minute Automatic Background Link Card */}
+              {/* Customizable Automatic Background Link Card */}
               <div className="p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-cyan-950/30 shadow-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -138,13 +143,21 @@ export default function CalendarSyncModal() {
                     </div>
                     <div>
                       <div className="text-xs font-bold text-slate-100 flex items-center gap-2">
-                        10-Minute Automatic Calendar Link
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-normal border border-emerald-500/30">
-                          Active
+                        {autoSyncState?.enabled
+                          ? `Automatic Calendar Link (Every ${autoSyncState?.intervalMinutes || 10} Min)`
+                          : 'Automatic Calendar Link (Disabled)'}
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-normal border ${
+                          autoSyncState?.enabled
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}>
+                          {autoSyncState?.enabled ? 'Active' : 'Disabled'}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400">
-                        Automatically scans Apple Calendar every 10 minutes and imports newly added events.
+                        {autoSyncState?.enabled
+                          ? `Automatically scans Apple Calendar every ${autoSyncState?.intervalMinutes || 10} minutes and imports newly added events.`
+                          : 'Auto-refresh is disabled. Events will only be scanned when manually initiated.'}
                       </div>
                     </div>
                   </div>
@@ -160,19 +173,34 @@ export default function CalendarSyncModal() {
 
                 <div className="grid grid-cols-3 gap-2.5 pt-1 text-[11px]">
                   <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
-                    <div className="text-slate-400 text-[10px] uppercase font-semibold">Frequency</div>
-                    <div className="text-slate-200 font-bold mt-0.5">Every 10 Minutes</div>
+                    <div className="text-slate-400 text-[10px] uppercase font-semibold mb-1 flex items-center justify-between">
+                      <span>Auto-Scrape Time</span>
+                      <span className="text-[9px] text-cyan-400 font-mono">Custom</span>
+                    </div>
+                    <select
+                      value={autoSyncState?.enabled ? (autoSyncState?.intervalMinutes || 10) : 0}
+                      onChange={(e) => updateAutoSyncInterval(Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-700/80 rounded px-2 py-1 text-xs font-bold text-slate-100 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    >
+                      <option value={5}>Every 5 minutes</option>
+                      <option value={10}>Every 10 minutes (Default)</option>
+                      <option value={15}>Every 15 minutes</option>
+                      <option value={30}>Every 30 minutes</option>
+                      <option value={60}>Every 1 hour</option>
+                      <option value={120}>Every 2 hours</option>
+                      <option value={0}>Manual Only (Disabled)</option>
+                    </select>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
                     <div className="text-slate-400 text-[10px] uppercase font-semibold">Last Sync</div>
-                    <div className="text-emerald-400 font-mono font-medium mt-0.5">
+                    <div className="text-emerald-400 font-mono font-medium mt-1">
                       {formatTime(autoSyncState?.lastSyncTime || lastScrapeTime)}
                     </div>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
                     <div className="text-slate-400 text-[10px] uppercase font-semibold">Next Scheduled Sync</div>
-                    <div className="text-cyan-400 font-mono font-medium mt-0.5">
-                      {formatTime(autoSyncState?.nextSyncTime)}
+                    <div className="text-cyan-400 font-mono font-medium mt-1">
+                      {autoSyncState?.enabled ? formatTime(autoSyncState?.nextSyncTime) : 'Paused'}
                     </div>
                   </div>
                 </div>

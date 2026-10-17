@@ -38,7 +38,7 @@ try {
 }
 
 const settingsStore = new Store('settings.json', {
-  autoScrapeIntervalMinutes: 30,
+  autoScrapeIntervalMinutes: 10,
   theme: 'dark',
   notificationsEnabled: true
 });
@@ -349,19 +349,51 @@ ipcMain.handle('settings:save', async (_event, newSettings) => {
 });
 
 // ----------------------------------------------------
-// Special Calendar Link & 10-Minute Auto-Refresh Engine
+// Customizable Apple Calendar Auto-Refresh Engine
+// Default: 10 minutes (User Selectable & Persisted)
 // ----------------------------------------------------
 let autoSyncInterval = null;
-const AUTO_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+const initialIntervalMinutes = (() => {
+  const saved = Number(settingsStore.get('autoScrapeIntervalMinutes'));
+  return !isNaN(saved) && saved >= 0 ? saved : 10;
+})();
 
 const autoSyncState = {
-  enabled: true,
-  intervalMinutes: 10,
+  enabled: initialIntervalMinutes > 0,
+  intervalMinutes: initialIntervalMinutes,
   lastSyncTime: null,
   nextSyncTime: null,
   isSyncing: false,
   totalEventsTracked: 0,
 };
+
+function rescheduleAutoSync(minutes) {
+  const mins = Number(minutes);
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    autoSyncInterval = null;
+  }
+
+  if (isNaN(mins) || mins <= 0) {
+    autoSyncState.enabled = false;
+    autoSyncState.intervalMinutes = 0;
+    autoSyncState.nextSyncTime = null;
+  } else {
+    autoSyncState.enabled = true;
+    autoSyncState.intervalMinutes = mins;
+    const intervalMs = mins * 60 * 1000;
+    autoSyncState.nextSyncTime = new Date(Date.now() + intervalMs).toISOString();
+
+    autoSyncInterval = setInterval(() => {
+      executeCalendarSync('auto');
+    }, intervalMs);
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('calendar:sync-status', autoSyncState);
+  }
+}
 
 async function executeCalendarSync(source = 'auto') {
   if (autoSyncState.isSyncing) {
@@ -379,7 +411,9 @@ async function executeCalendarSync(source = 'auto') {
     const result = await scrapeAppleCalendarEvents(tasks, { pastDays: 180, rangeDays: 180 });
     
     autoSyncState.lastSyncTime = new Date().toISOString();
-    autoSyncState.nextSyncTime = new Date(Date.now() + AUTO_SYNC_INTERVAL_MS).toISOString();
+    if (autoSyncState.enabled && autoSyncState.intervalMinutes > 0) {
+      autoSyncState.nextSyncTime = new Date(Date.now() + autoSyncState.intervalMinutes * 60 * 1000).toISOString();
+    }
 
     if (result.success && result.newTasks && result.newTasks.length > 0) {
       const updated = [...result.newTasks, ...tasks];
@@ -428,13 +462,9 @@ async function executeCalendarSync(source = 'auto') {
 }
 
 function startCalendarAutoSync() {
-  if (autoSyncInterval) clearInterval(autoSyncInterval);
-  autoSyncState.nextSyncTime = new Date(Date.now() + AUTO_SYNC_INTERVAL_MS).toISOString();
-
-  // Schedule every 10 minutes automatically
-  autoSyncInterval = setInterval(() => {
-    executeCalendarSync('auto');
-  }, AUTO_SYNC_INTERVAL_MS);
+  const savedMinutes = Number(settingsStore.get('autoScrapeIntervalMinutes'));
+  const intervalMinutes = !isNaN(savedMinutes) && savedMinutes >= 0 ? savedMinutes : 10;
+  rescheduleAutoSync(intervalMinutes);
 
   // Initial auto-sync 3 seconds after window launch
   setTimeout(() => {
@@ -459,6 +489,13 @@ ipcMain.handle('calendar:getAutoSyncStatus', () => {
 
 ipcMain.handle('calendar:forceAutoRefresh', async () => {
   return await executeCalendarSync('manual');
+});
+
+ipcMain.handle('calendar:setAutoSyncInterval', async (_event, minutes) => {
+  const mins = Number(minutes);
+  settingsStore.set('autoScrapeIntervalMinutes', mins);
+  rescheduleAutoSync(mins);
+  return autoSyncState;
 });
 
 ipcMain.handle('calendar:openApple', async () => {
