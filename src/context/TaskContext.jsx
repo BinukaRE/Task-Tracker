@@ -262,7 +262,13 @@ export const TaskProvider = ({ children }) => {
       }
 
       if (res.success) {
-        if (res.newTasks && res.newTasks.length > 0) {
+        if (res.skipped) {
+          setScrapeNotice({
+            type: 'info',
+            message: res.message || 'Calendar is closed.',
+            details: 'Task Flow runs silently in the background and will never open Calendar automatically.'
+          });
+        } else if (res.newTasks && res.newTasks.length > 0) {
           setTasks((prev) => [...res.newTasks, ...prev]);
           setScrapeStats(prev => ({
             totalScraped: prev.totalScraped + res.newTasks.length,

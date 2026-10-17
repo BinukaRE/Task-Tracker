@@ -9,17 +9,26 @@ const execAsync = util.promisify(exec);
 function isCalendarAppRunning() {
   if (process.platform !== 'darwin') return false;
   try {
-    execSync('pgrep -x "Calendar"', { stdio: 'ignore' });
-    return true;
+    const res = execSync('osascript -e \'application "Calendar" is running\'', {
+      encoding: 'utf8',
+      timeout: 1500,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return res === 'true';
   } catch (e) {
-    return false;
+    try {
+      const pgrep = execSync('pgrep -x "Calendar"', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      return Boolean(pgrep);
+    } catch {
+      return false;
+    }
   }
 }
 
 /**
  * Automatically close Calendar application if it is running
  */
-async function closeCalendarApp() {
+async function closeCalendarApp(force = false) {
   if (process.platform !== 'darwin') return;
   try {
     if (isCalendarAppRunning()) {
@@ -187,19 +196,30 @@ end tell
   }
 }
 
+let cachedAvailableCalendars = [];
+
 /**
  * Get list of available calendar names
  */
 async function getAvailableCalendars() {
   if (process.platform !== 'darwin') return [];
+  const wasRunning = isCalendarAppRunning();
+  // If Calendar is not running and we have cached calendars, return cached immediately
+  if (!wasRunning && cachedAvailableCalendars.length > 0) {
+    return cachedAvailableCalendars;
+  }
   try {
-    const wasRunning = isCalendarAppRunning();
+    if (!wasRunning) {
+      try {
+        execSync('open -g -j /System/Applications/Calendar.app', { stdio: 'ignore' });
+        await new Promise(r => setTimeout(r, 300));
+      } catch (e) {}
+    }
     const script = `
 tell application "Calendar"
-  ${!wasRunning ? 'launch' : ''}
   try
     set cNames to (name of every calendar)
-    ${!wasRunning ? 'quit' : ''}
+    ${!wasRunning ? 'try\nquit\nend try' : ''}
     set AppleScript's text item delimiters to ","
     return cNames as text
   on error
@@ -210,7 +230,7 @@ end tell
 `;
     const namesRaw = await runAppleScript(script, 6000);
     const cleaned = namesRaw.replace(/^"|"$/g, '').trim();
-    if (!cleaned) return [];
+    if (!cleaned) return cachedAvailableCalendars;
     const all = cleaned.split(',').map(s => s.trim()).filter(Boolean);
     const seen = new Set();
     const result = [];
@@ -226,11 +246,16 @@ end tell
       seen.add(lower);
       result.push(name);
     }
+    if (result.length > 0) {
+      cachedAvailableCalendars = result;
+    }
     return result;
   } catch (err) {
-    return [];
+    return cachedAvailableCalendars;
   } finally {
-    await closeCalendarApp();
+    if (!wasRunning) {
+      await closeCalendarApp();
+    }
   }
 }
 
@@ -255,8 +280,21 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
     };
   }
 
-  // Comprehensive rolling window: default past 60 days to next 60 days (captures full current academic period)
-  const pastDays = options.pastDays !== undefined ? Number(options.pastDays) : 60;
+  const wasRunning = isCalendarAppRunning();
+  const isBackground = options.isBackground || options.source === 'auto' || options.source === 'startup';
+
+  // CRITICAL REQUIREMENT: Background task must NEVER open Calendar.app when it is closed!
+  if (isBackground && !wasRunning) {
+    return {
+      success: true,
+      skipped: true,
+      newTasks: [],
+      message: 'Calendar is closed; auto-sync deferred in background to prevent opening Calendar and avoid system load.',
+    };
+  }
+
+  // Active rolling window: 30 days past to 60 days future
+  const pastDays = options.pastDays !== undefined ? Number(options.pastDays) : 30;
   const futureDays = options.rangeDays !== undefined ? Number(options.rangeDays) : 60;
   const targetCalendarName = options.targetCalendar || null;
 
@@ -266,10 +304,24 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
 
   try {
     const targetFilter = targetCalendarName && targetCalendarName !== 'all' ? targetCalendarName.toLowerCase().trim() : null;
-    const wasRunning = isCalendarAppRunning();
+
+    // If Calendar is NOT running and this is a user-initiated manual scrape:
+    // Launch Calendar hidden in the background so NO GUI window opens on screen
+    if (!wasRunning) {
+      try {
+        execSync('open -g -j /System/Applications/Calendar.app', { stdio: 'ignore' });
+        await new Promise(r => setTimeout(r, 400));
+      } catch (e) {
+        // Fallback to AppleScript
+      }
+    }
+
+    // Ultra-optimized low-load single-pass query:
+    // 1. Skips empty calendars instantly with (count of events > 0)
+    // 2. Evaluates date filter ONCE (not 4 times)
+    // 3. Filters out system/virtual calendars (Birthdays, Siri, Reminders, Holidays)
     const script = `
 tell application "Calendar"
-  ${!wasRunning ? 'launch' : ''}
   set results to {}
   set dStart to (current date) - (${pastDays} * days)
   set dEnd to (current date) + (${futureDays} * days)
@@ -281,41 +333,41 @@ tell application "Calendar"
       set end of seenNames to cName
       try
         tell c
-          set sList to (summary of every event whose start date >= dStart and start date <= dEnd)
-          set uList to (uid of every event whose start date >= dStart and start date <= dEnd)
-          set stList to (start date of every event whose start date >= dStart and start date <= dEnd)
-          set etList to (end date of every event whose start date >= dStart and start date <= dEnd)
+          if (count of events) > 0 then
+            set evs to (every event whose start date >= dStart and start date <= dEnd)
+            set evCount to count of evs
+            if evCount > 0 then
+              set {sList, uList, stList, etList} to {summary, uid, start date, end date} of evs
+              repeat with i from 1 to evCount
+                try
+                  set rawSummary to (item i of sList)
+                  set AppleScript's text item delimiters to {return, linefeed}
+                  set textItems to text items of rawSummary
+                  set AppleScript's text item delimiters to " "
+                  set cleanSummary to textItems as text
+
+                  set sDate to ((item i of stList) as «class isot» as string)
+                  set eDate to ""
+                  try
+                    set eDate to ((item i of etList) as «class isot» as string)
+                  end try
+
+                  set end of results to (cName & "<|>" & (item i of uList) & "<|>" & cleanSummary & "<|>" & sDate & "<|>" & eDate)
+                end try
+              end repeat
+            end if
+          end if
         end tell
-        set num to count of sList
-        repeat with i from 1 to num
-          try
-            set rawSummary to (item i of sList)
-            set AppleScript's text item delimiters to {return, linefeed}
-            set textItems to text items of rawSummary
-            set AppleScript's text item delimiters to " "
-            set cleanSummary to textItems as text
-
-            set sDate to ((item i of stList) as «class isot» as string)
-            set eDate to ""
-            try
-              set eDate to ((item i of etList) as «class isot» as string)
-            end try
-
-            set end of results to (cName & "<|>" & (item i of uList) & "<|>" & cleanSummary & "<|>" & sDate & "<|>" & eDate)
-          end try
-        end repeat
       end try
     end if
   end repeat
-  try
-    quit
-  end try
+  ${!wasRunning ? 'try\nquit\nend try' : ''}
   set AppleScript's text item delimiters to linefeed
   return results as text
 end tell
 `;
 
-    const rawOutput = await runAppleScript(script, 120000);
+    const rawOutput = await runAppleScript(script, 25000);
     const lines = (rawOutput || '').split(/\r?\n/).filter(l => l.trim().length > 0);
     const newTasks = [];
 
@@ -412,7 +464,9 @@ end tell
         : `Could not access Apple Calendar: ${errMsg}.`,
     };
   } finally {
-    await closeCalendarApp();
+    if (!wasRunning) {
+      await closeCalendarApp();
+    }
   }
 }
 
@@ -452,6 +506,7 @@ module.exports = {
   checkCalendarPermission,
   getAvailableCalendars,
   closeCalendarApp,
+  isCalendarAppRunning,
   openAppleCalendar,
   openPrivacySettings,
 };

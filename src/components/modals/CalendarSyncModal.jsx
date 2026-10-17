@@ -38,16 +38,24 @@ export default function CalendarSyncModal() {
   const [rangeDays, setRangeDays] = useState(180);
   const [selectedCal, setSelectedCal] = useState('all');
   const [availableCalendars, setAvailableCalendars] = useState([]);
+  const [isCalendarRunning, setIsCalendarRunning] = useState(false);
 
   useEffect(() => {
-    if (isCalendarModalOpen && window.electronAPI?.getAvailableCalendars) {
-      window.electronAPI.getAvailableCalendars().then((cals) => {
-        if (Array.isArray(cals) && cals.length > 0) {
-          setAvailableCalendars(cals);
-        }
-      }).catch(() => {});
+    if (isCalendarModalOpen) {
+      if (window.electronAPI?.getAvailableCalendars) {
+        window.electronAPI.getAvailableCalendars().then((cals) => {
+          if (Array.isArray(cals) && cals.length > 0) {
+            setAvailableCalendars(cals);
+          }
+        }).catch(() => {});
+      }
+      if (window.electronAPI?.isCalendarAppRunning) {
+        window.electronAPI.isCalendarAppRunning().then((res) => {
+          setIsCalendarRunning(Boolean(res));
+        }).catch(() => {});
+      }
     }
-  }, [isCalendarModalOpen]);
+  }, [isCalendarModalOpen, autoSyncState?.lastSyncTime]);
 
   if (!isCalendarModalOpen) return null;
 
@@ -153,10 +161,21 @@ export default function CalendarSyncModal() {
                         }`}>
                           {autoSyncState?.enabled ? 'Active' : 'Disabled'}
                         </span>
+                        {isCalendarRunning ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Calendar Open
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Zero-Load Idle (App Closed)
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-slate-400">
                         {autoSyncState?.enabled
-                          ? `Automatically scans Apple Calendar every ${autoSyncState?.intervalMinutes || 10} minutes and imports newly added events.`
+                          ? (isCalendarRunning
+                              ? `Background task active with ultra-low load. Scans every ${autoSyncState?.intervalMinutes || 10} min without opening new windows.`
+                              : `Calendar is closed. Auto-sync remains in pure zero-load idle mode and will never launch or pop open Calendar.app.`)
                           : 'Auto-refresh is disabled. Events will only be scanned when manually initiated.'}
                       </div>
                     </div>

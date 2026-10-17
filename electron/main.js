@@ -7,6 +7,7 @@ const {
   checkCalendarPermission,
   getAvailableCalendars,
   closeCalendarApp,
+  isCalendarAppRunning,
   openAppleCalendar,
   openPrivacySettings,
 } = require('./calendar-sync');
@@ -401,6 +402,21 @@ async function executeCalendarSync(source = 'auto') {
     return { inProgress: true, message: 'Calendar sync is already in progress.' };
   }
 
+  const isRunning = isCalendarAppRunning();
+  // CRITICAL REQUIREMENT: Do not open Calendar automatically during background auto-sync!
+  if ((source === 'auto' || source === 'startup') && !isRunning) {
+    autoSyncState.lastSyncTime = new Date().toISOString();
+    if (autoSyncState.enabled && autoSyncState.intervalMinutes > 0) {
+      autoSyncState.nextSyncTime = new Date(Date.now() + autoSyncState.intervalMinutes * 60 * 1000).toISOString();
+    }
+    autoSyncState.isSyncing = false;
+    autoSyncState.statusMessage = 'Calendar closed (zero-load background idle)';
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('calendar:sync-status', autoSyncState);
+    }
+    return { success: true, skipped: true, reason: 'Calendar is closed' };
+  }
+
   autoSyncState.isSyncing = true;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('calendar:sync-status', autoSyncState);
@@ -408,8 +424,13 @@ async function executeCalendarSync(source = 'auto') {
 
   try {
     const tasks = tasksStore.get('tasks') || [];
-    // Deep 180-day past and 180-day future sync (covers full academic year & active work)
-    const result = await scrapeAppleCalendarEvents(tasks, { pastDays: 180, rangeDays: 180 });
+    // Lightweight 30-day past and 60-day future rolling window for active tasks (zero load)
+    const result = await scrapeAppleCalendarEvents(tasks, {
+      pastDays: 30,
+      rangeDays: 60,
+      isBackground: source === 'auto' || source === 'startup',
+      source,
+    });
     
     autoSyncState.lastSyncTime = new Date().toISOString();
     if (autoSyncState.enabled && autoSyncState.intervalMinutes > 0) {
@@ -456,7 +477,9 @@ async function executeCalendarSync(source = 'auto') {
     return { success: false, error: err.message };
   } finally {
     autoSyncState.isSyncing = false;
-    await closeCalendarApp();
+    if (!isRunning) {
+      await closeCalendarApp();
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('calendar:sync-status', autoSyncState);
     }
@@ -506,6 +529,10 @@ ipcMain.handle('calendar:openApple', async () => {
 
 ipcMain.handle('calendar:closeApple', async () => {
   return await closeCalendarApp();
+});
+
+ipcMain.handle('calendar:isAppRunning', () => {
+  return isCalendarAppRunning();
 });
 
 ipcMain.handle('calendar:getCalendars', async () => {

@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkCalendarPermission: () => ipcRenderer.invoke('calendar:checkPermission'),
   openAppleCalendar: () => ipcRenderer.invoke('calendar:openApple'),
   closeAppleCalendar: () => ipcRenderer.invoke('calendar:closeApple'),
+  isCalendarAppRunning: () => ipcRenderer.invoke('calendar:isAppRunning'),
   getAvailableCalendars: () => ipcRenderer.invoke('calendar:getCalendars'),
   openPrivacySettings: (target) => ipcRenderer.invoke('calendar:openPrivacySettings', target),
   getAutoSyncStatus: () => ipcRenderer.invoke('calendar:getAutoSyncStatus'),
