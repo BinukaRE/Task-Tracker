@@ -239,7 +239,19 @@ tell application "Calendar"
         set num to count of sList
         repeat with i from 1 to num
           try
-            set end of results to (cName & "<|>" & (item i of uList) & "<|>" & (item i of sList) & "<|>" & ((item i of stList) as «class isot» as string) & "<|>" & ((item i of etList) as «class isot» as string))
+            set rawSummary to (item i of sList)
+            set AppleScript's text item delimiters to {return, linefeed}
+            set textItems to text items of rawSummary
+            set AppleScript's text item delimiters to " "
+            set cleanSummary to textItems as text
+
+            set sDate to ((item i of stList) as «class isot» as string)
+            set eDate to ""
+            try
+              set eDate to ((item i of etList) as «class isot» as string)
+            end try
+
+            set end of results to (cName & "<|>" & (item i of uList) & "<|>" & cleanSummary & "<|>" & sDate & "<|>" & eDate)
           end try
         end repeat
       end try
@@ -256,7 +268,7 @@ end tell
 
     for (const line of lines) {
       const parts = line.split('<|>');
-      if (parts.length < 3) continue;
+      if (parts.length < 4) continue;
 
       const calName = (parts[0] || '').trim();
       const uid = (parts[1] || '').trim();
@@ -265,14 +277,17 @@ end tell
       const endDateStr = (parts[4] || '').trim();
       const desc = (parts[5] || '').trim();
 
-      if (!title) continue;
+      if (!title || !startDateStr) continue;
       if (targetFilter && calName.toLowerCase() !== targetFilter) continue;
 
       const startDate = new Date(startDateStr);
-      const endDate = endDateStr ? new Date(endDateStr) : null;
-      const dueDate = !isNaN(startDate.getTime())
-        ? startDate.toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0];
+      if (isNaN(startDate.getTime())) {
+        // Strictly ignore events without a valid start date - NEVER default to today!
+        continue;
+      }
+
+      const endDate = endDateStr && !isNaN(new Date(endDateStr).getTime()) ? new Date(endDateStr) : null;
+      const dueDate = startDate.toISOString().split('T')[0];
 
       // Check if task already exists in Task Flow
       const alreadyExists = (uid && existingUids.has(uid)) || existingTitles.has(title.toLowerCase());

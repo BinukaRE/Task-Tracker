@@ -23,7 +23,13 @@ const tasksStore = new Store('tasks.json', { tasks: [] });
 // Strip legacy sample tasks from store if present
 try {
   const current = tasksStore.get('tasks') || [];
-  const cleaned = current.filter(t => t.id !== 'task-1' && t.id !== 'task-2' && t.title !== 'Q4 Product Roadmap Review');
+  const cleaned = current.filter(t => 
+    t.id !== 'task-1' && 
+    t.id !== 'task-2' && 
+    t.title !== 'Q4 Product Roadmap Review' &&
+    !t.title.match(/^\d{4}-\d{2}-\d{2}T/) &&
+    t.title !== 'MHZ4359 Mathe'
+  );
   if (cleaned.length !== current.length) {
     tasksStore.set('tasks', cleaned);
   }
