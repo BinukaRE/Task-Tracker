@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
 import {
+  compareTasksByAscendingTime,
+  formatEventTimeRange,
+  getTaskSortTimestamp,
+} from '../../utils/dateUtils';
+import {
   Plus,
   CheckCircle2,
   Circle,
@@ -72,29 +77,36 @@ export default function ListView() {
 
   // Filter tasks by date scope (Current date & after dates, removing past/before ones by default)
   const dateFilteredTasks = filteredTasks.filter((task) => {
-    if (!task.dueDate) {
+    let taskDate = task.dueDate;
+    if (!taskDate && task.startTime) {
+      try {
+        taskDate = getLocalDateString(new Date(task.startTime));
+      } catch {}
+    }
+
+    if (!taskDate) {
       return includeUnscheduled && (dateScope === 'upcoming' || dateScope === 'all');
     }
 
     if (dateScope === 'upcoming') {
       // CURRENT DATE (TODAY) AND AFTER DATES ONLY - REMOVES BEFORE ONES!
-      return task.dueDate >= todayStr;
+      return taskDate >= todayStr;
     }
 
     if (dateScope === 'today') {
-      return task.dueDate === todayStr;
+      return taskDate === todayStr;
     }
 
     if (dateScope === 'week') {
-      return task.dueDate >= todayStr && task.dueDate <= nextWeekStr;
+      return taskDate >= todayStr && taskDate <= nextWeekStr;
     }
 
     if (dateScope === 'month') {
-      return task.dueDate >= todayStr && task.dueDate <= nextMonthStr;
+      return taskDate >= todayStr && taskDate <= nextMonthStr;
     }
 
     if (dateScope === 'past') {
-      return task.dueDate < todayStr;
+      return taskDate < todayStr;
     }
 
     return true; // 'all'
@@ -119,16 +131,16 @@ export default function ListView() {
 
   const priorityWeights = { urgent: 4, high: 3, medium: 2, low: 1 };
 
+  // Chronological sorting: Default is Ascending Time (earliest morning time first)
   const sortedTasks = [...dateFilteredTasks].sort((a, b) => {
     let comparison = 0;
     if (sortBy === 'dueDate') {
-      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-      comparison = dateA - dateB;
+      comparison = compareTasksByAscendingTime(a, b);
     } else if (sortBy === 'priority') {
-      comparison = (priorityWeights[b.priority] || 0) - (priorityWeights[a.priority] || 0);
+      const pDiff = (priorityWeights[b.priority] || 0) - (priorityWeights[a.priority] || 0);
+      comparison = pDiff !== 0 ? pDiff : compareTasksByAscendingTime(a, b);
     } else if (sortBy === 'title') {
-      comparison = a.title.localeCompare(b.title);
+      comparison = (a.title || '').localeCompare(b.title || '');
     }
     return sortAsc ? comparison : -comparison;
   });
@@ -147,30 +159,28 @@ export default function ListView() {
     }
   };
 
-  const renderDateBadge = (dueDate) => {
-    if (!dueDate) {
-      return <span className="text-[11px] text-slate-500 font-mono">No Date</span>;
-    }
+  const renderDateBadge = (task) => {
+    const dueDate = task.dueDate || (task.startTime ? getLocalDateString(new Date(task.startTime)) : null);
+    const eventTime = formatEventTimeRange(task);
 
-    if (dueDate === todayStr) {
-      return (
+    let dateEl = null;
+    if (!dueDate) {
+      dateEl = <span className="text-[11px] text-slate-500 font-mono">No Date</span>;
+    } else if (dueDate === todayStr) {
+      dateEl = (
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm shadow-emerald-500/10">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span>Today</span>
         </span>
       );
-    }
-
-    if (dueDate === tomorrowStr) {
-      return (
+    } else if (dueDate === tomorrowStr) {
+      dateEl = (
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
           <span>Tomorrow</span>
         </span>
       );
-    }
-
-    if (dueDate < todayStr) {
-      return (
+    } else if (dueDate < todayStr) {
+      dateEl = (
         <span
           className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20"
           title="Past Due / Previous Event"
@@ -179,14 +189,28 @@ export default function ListView() {
           <span>{dueDate}</span>
         </span>
       );
+    } else {
+      dateEl = (
+        <div className="text-[11px] font-mono text-slate-300 flex items-center justify-end gap-1">
+          <Clock className="w-3 h-3 text-slate-500" />
+          <span>{dueDate}</span>
+        </div>
+      );
     }
 
-    return (
-      <div className="text-[11px] font-mono text-slate-300 flex items-center justify-end gap-1">
-        <Clock className="w-3 h-3 text-slate-500" />
-        <span>{dueDate}</span>
-      </div>
-    );
+    if (eventTime) {
+      return (
+        <div className="flex flex-col items-end gap-1">
+          {dateEl}
+          <span className="text-[10px] font-mono text-cyan-300 font-semibold flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/25 shadow-[0_0_8px_rgba(6,182,212,0.15)]">
+            <Clock className="w-2.5 h-2.5 text-cyan-400" />
+            {eventTime}
+          </span>
+        </div>
+      );
+    }
+
+    return dateEl;
   };
 
   return (
@@ -369,7 +393,7 @@ export default function ListView() {
               onChange={(e) => setSortBy(e.target.value)}
               className="bg-slate-900 text-slate-300 border border-slate-700/60 text-[11px] rounded-md px-2 py-1 focus:outline-none"
             >
-              <option value="dueDate">Due Date</option>
+              <option value="dueDate">Time & Date (Chronological)</option>
               <option value="priority">Priority</option>
               <option value="title">Title</option>
             </select>
@@ -473,9 +497,9 @@ export default function ListView() {
                       <span className="text-[10px] text-slate-600 px-2 py-0.5">Unsynced</span>
                     )}
 
-                    {/* Due Date */}
-                    <div className="text-right min-w-28 flex justify-end">
-                      {renderDateBadge(task.dueDate)}
+                    {/* Due Date & Time */}
+                    <div className="text-right min-w-32 flex justify-end">
+                      {renderDateBadge(task)}
                     </div>
 
                     {/* Actions */}

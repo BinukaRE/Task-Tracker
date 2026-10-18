@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
+import { compareTasksByAscendingTime } from '../../utils/dateUtils';
 import {
   ChevronLeft,
   ChevronRight,
@@ -154,8 +155,10 @@ export default function CalendarView() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Tasks for the selected date drawer
-  const selectedDateTasks = tasks.filter((t) => isTaskOnDate(t, selectedDateStr));
+  // Tasks for the selected date drawer, sorted in chronological ascending time order
+  const selectedDateTasks = tasks
+    .filter((t) => isTaskOnDate(t, selectedDateStr))
+    .sort(compareTasksByAscendingTime);
 
   return (
     <div className="h-full flex-1 flex flex-col p-6 bg-slate-900/30 overflow-hidden">

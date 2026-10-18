@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useTasks } from '../../context/TaskContext';
+import { compareTasksByAscendingTime, getTaskSortTimestamp } from '../../utils/dateUtils';
 import {
   Plus,
   CheckCircle2,
@@ -364,11 +365,11 @@ export default function KanbanView() {
     }
   };
 
-  // Toggle sorting inside a column
+  // Toggle sorting inside a column: 'time' (ascending chronological) -> 'priority' -> 'time'
   const cycleColumnSort = (columnId) => {
     setColumnSort((prev) => {
-      const current = prev[columnId] || 'default';
-      const next = current === 'default' ? 'priority' : current === 'priority' ? 'date' : 'default';
+      const current = prev[columnId] || 'time';
+      const next = current === 'time' ? 'priority' : 'time';
       return { ...prev, [columnId]: next };
     });
   };
@@ -760,18 +761,19 @@ export default function KanbanView() {
             let colTasks = scopedTasks.filter((t) => t.status === column.id);
             const isColumnHovered = dragOverColumnId === column.id;
             const isQuickAddActive = activeQuickAddColumn === column.id;
-            const currentSort = columnSort[column.id] || 'default';
+            const currentSort = columnSort[column.id] || 'time';
 
-            // Apply optional column-level sorting
+            // Apply column-level sorting: Default is Chronological (Ascending Time)
             if (currentSort === 'priority') {
               const pWeight = { urgent: 4, high: 3, medium: 2, low: 1 };
-              colTasks = [...colTasks].sort((a, b) => (pWeight[b.priority] || 2) - (pWeight[a.priority] || 2));
-            } else if (currentSort === 'date') {
               colTasks = [...colTasks].sort((a, b) => {
-                const da = a.dueDate || a.startTime || '9999';
-                const db = b.dueDate || b.startTime || '9999';
-                return da.localeCompare(db);
+                const diff = (pWeight[b.priority] || 2) - (pWeight[a.priority] || 2);
+                if (diff !== 0) return diff;
+                return compareTasksByAscendingTime(a, b);
               });
+            } else {
+              // 'time': chronological ascending time (earliest time first: e.g. 08:00 -> 10:30 -> 14:00)
+              colTasks = [...colTasks].sort(compareTasksByAscendingTime);
             }
 
             return (
@@ -825,11 +827,11 @@ export default function KanbanView() {
                     <button
                       onClick={() => cycleColumnSort(column.id)}
                       className={`p-1 rounded-lg transition-colors ${
-                        currentSort !== 'default'
-                          ? 'text-indigo-400 bg-indigo-500/15'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'
+                        currentSort === 'priority'
+                          ? 'text-amber-400 bg-amber-500/15'
+                          : 'text-indigo-400 bg-indigo-500/15 hover:bg-indigo-500/25'
                       }`}
-                      title={`Sorting: ${currentSort === 'default' ? 'Default' : currentSort === 'priority' ? 'By Priority' : 'By Date'}`}
+                      title={`Sorting: ${currentSort === 'priority' ? 'By Priority (Urgent first)' : 'By Time (Ascending earliest first)'}`}
                     >
                       <ArrowUpDown className="w-3.5 h-3.5" />
                     </button>
