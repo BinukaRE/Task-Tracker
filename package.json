@@ -9,10 +9,13 @@
     "dev": "concurrently -k \"vite\" \"cross-env NODE_ENV=development electron .\"",
     "dev:vite": "vite",
     "dev:electron": "cross-env NODE_ENV=development electron .",
-    "build": "vite build"
+    "build": "vite build",
+    "dist": "npm run build && electron-builder --mac dmg",
+    "dist:arm64": "npm run build && electron-builder --mac dmg --arm64",
+    "dist:x64": "npm run build && electron-builder --mac dmg --x64"
   },
   "keywords": [],
-  "author": "",
+  "author": "Binuka Reshan",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -30,8 +33,50 @@
     "concurrently": "^10.0.6",
     "cross-env": "^10.1.0",
     "electron": "^44.8.0",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.5.30",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.4"
+  },
+  "build": {
+    "appId": "com.binuka.taskflow",
+    "productName": "Task Flow",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg"
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Task Flow",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    }
   }
 }
