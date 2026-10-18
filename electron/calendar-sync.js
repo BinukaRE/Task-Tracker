@@ -317,9 +317,8 @@ async function scrapeAppleCalendarEvents(existingTasks = [], options = {}) {
     }
 
     // Ultra-optimized low-load single-pass query:
-    // 1. Skips empty calendars instantly with (count of events > 0)
-    // 2. Evaluates date filter ONCE (not 4 times)
-    // 3. Filters out system/virtual calendars (Birthdays, Siri, Reminders, Holidays)
+    // 1. Skips empty calendars and virtual system calendars (Birthdays, Siri, Reminders, Holidays)
+    // 2. Extracts vector property lists safely without element runtime errors
     const script = `
 tell application "Calendar"
   set results to {}
@@ -333,31 +332,29 @@ tell application "Calendar"
       set end of seenNames to cName
       try
         tell c
-          if (count of events) > 0 then
-            set evs to (every event whose start date >= dStart and start date <= dEnd)
-            set evCount to count of evs
-            if evCount > 0 then
-              set {sList, uList, stList, etList} to {summary, uid, start date, end date} of evs
-              repeat with i from 1 to evCount
-                try
-                  set rawSummary to (item i of sList)
-                  set AppleScript's text item delimiters to {return, linefeed}
-                  set textItems to text items of rawSummary
-                  set AppleScript's text item delimiters to " "
-                  set cleanSummary to textItems as text
-
-                  set sDate to ((item i of stList) as «class isot» as string)
-                  set eDate to ""
-                  try
-                    set eDate to ((item i of etList) as «class isot» as string)
-                  end try
-
-                  set end of results to (cName & "<|>" & (item i of uList) & "<|>" & cleanSummary & "<|>" & sDate & "<|>" & eDate)
-                end try
-              end repeat
-            end if
-          end if
+          set sList to (summary of every event whose start date >= dStart and start date <= dEnd)
+          set uList to (uid of every event whose start date >= dStart and start date <= dEnd)
+          set stList to (start date of every event whose start date >= dStart and start date <= dEnd)
+          set etList to (end date of every event whose start date >= dStart and start date <= dEnd)
         end tell
+        set num to count of sList
+        repeat with i from 1 to num
+          try
+            set rawSummary to (item i of sList)
+            set AppleScript's text item delimiters to {return, linefeed}
+            set textItems to text items of rawSummary
+            set AppleScript's text item delimiters to " "
+            set cleanSummary to textItems as text
+
+            set sDate to ((item i of stList) as «class isot» as string)
+            set eDate to ""
+            try
+              set eDate to ((item i of etList) as «class isot» as string)
+            end try
+
+            set end of results to (cName & "<|>" & (item i of uList) & "<|>" & cleanSummary & "<|>" & sDate & "<|>" & eDate)
+          end try
+        end repeat
       end try
     end if
   end repeat
@@ -367,7 +364,7 @@ tell application "Calendar"
 end tell
 `;
 
-    const rawOutput = await runAppleScript(script, 25000);
+    const rawOutput = await runAppleScript(script, 60000);
     const lines = (rawOutput || '').split(/\r?\n/).filter(l => l.trim().length > 0);
     const newTasks = [];
 
