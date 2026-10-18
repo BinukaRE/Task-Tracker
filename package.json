@@ -1,6 +1,6 @@
 {
-  "name": "task-flow",
-  "productName": "Task Flow",
+  "name": "task-tracker",
+  "productName": "Task Tracker",
   "version": "1.0.0",
   "description": "Advanced task tracking system with macOS Calendar integration",
   "main": "electron/main.js",
@@ -39,8 +39,8 @@
     "vite": "^8.3.4"
   },
   "build": {
-    "appId": "com.binuka.taskflow",
-    "productName": "Task Flow",
+    "appId": "com.binuka.tasktracker",
+    "productName": "Task Tracker",
     "directories": {
       "output": "release"
     },
@@ -60,7 +60,7 @@
       "identity": null
     },
     "dmg": {
-      "title": "Task Flow",
+      "title": "Task Tracker",
       "contents": [
         {
           "x": 130,

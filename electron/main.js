@@ -13,7 +13,7 @@ const {
 } = require('./calendar-sync');
 
 // Explicitly configure Electron App Name
-app.setName('Task Flow');
+app.setName('Task Tracker');
 
 let mainWindow = null;
 let tray = null;
@@ -54,7 +54,7 @@ function createMainWindow() {
     height: 820,
     minWidth: 960,
     minHeight: 650,
-    title: 'Task Flow',
+    title: 'Task Tracker',
     icon: appIconImage || appIconPath,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
@@ -115,7 +115,7 @@ function createTray() {
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip('Task Flow');
+  tray.setToolTip('Task Tracker');
 
   const updateContextMenu = () => {
     const tasks = tasksStore.get('tasks') || [];
@@ -123,12 +123,12 @@ function createTray() {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: `Task Flow (${pendingCount} active)`,
+        label: `Task Tracker (${pendingCount} active)`,
         enabled: false,
       },
       { type: 'separator' },
       {
-        label: 'Open Task Flow',
+        label: 'Open Task Tracker',
         click: () => {
           if (mainWindow) {
             mainWindow.show();
@@ -175,7 +175,7 @@ function createTray() {
       },
       { type: 'separator' },
       {
-        label: 'Quit Task Flow',
+        label: 'Quit Task Tracker',
         accelerator: 'CommandOrControl+Q',
         click: () => {
           isQuitting = true;
@@ -231,9 +231,9 @@ app.whenReady().then(async () => {
   // Setup Native macOS Application Menu
   const menuTemplate = [
     {
-      label: 'Task Flow',
+      label: 'Task Tracker',
       submenu: [
-        { role: 'about', label: 'About Task Flow' },
+        { role: 'about', label: 'About Task Tracker' },
         { type: 'separator' },
         {
           label: 'Quick Add Task...',
@@ -258,11 +258,11 @@ app.whenReady().then(async () => {
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
-        { role: 'hide', label: 'Hide Task Flow' },
+        { role: 'hide', label: 'Hide Task Tracker' },
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
-        { role: 'quit', label: 'Quit Task Flow' }
+        { role: 'quit', label: 'Quit Task Tracker' }
       ]
     },
     {
@@ -454,7 +454,7 @@ async function executeCalendarSync(source = 'auto') {
 
       if (Notification.isSupported() && source === 'auto') {
         new Notification({
-          title: 'Task Flow • Calendar Auto-Refresh',
+          title: 'Task Tracker • Calendar Auto-Refresh',
           body: `Imported ${result.newTasks.length} new event(s) from Apple Calendar.`,
         }).show();
       }

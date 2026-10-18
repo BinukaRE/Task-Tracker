@@ -25,12 +25,12 @@ export default function TitleBar() {
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 p-1 border border-slate-800 shadow-sm flex items-center justify-center flex-shrink-0">
             <img
               src={appIcon}
-              alt="Task Flow Icon"
+              alt="Task Tracker Icon"
               className="w-full h-full object-contain select-none pointer-events-none drop-shadow"
             />
           </div>
           <span className="font-bold text-sm tracking-tight text-slate-100 flex items-center gap-1.5">
-            Task Flow
+            Task Tracker
           </span>
         </div>
 

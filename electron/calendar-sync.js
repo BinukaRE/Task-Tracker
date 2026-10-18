@@ -441,7 +441,7 @@ end tell
       message: newTasks.length > 0
         ? `Successfully scraped ${newTasks.length} new event(s) from Apple Calendar!`
         : (lines.length > 0
-            ? `Checked ${lines.length} calendar event(s). All events are already in Task Flow.`
+            ? `Checked ${lines.length} calendar event(s). All events are already in Task Tracker.`
             : 'No events found in Apple Calendar for the selected date range.'),
     };
   } catch (err) {
@@ -457,7 +457,7 @@ end tell
       error: isPermissionError ? 'macOS Permission Required' : 'Calendar Scrape Failed',
       isPermissionError,
       details: isPermissionError
-        ? 'macOS blocked Task Flow from accessing Calendar (Error -1743). Please open System Settings > Privacy & Security > Automation and enable Calendar.'
+        ? 'macOS blocked Task Tracker from accessing Calendar (Error -1743). Please open System Settings > Privacy & Security > Automation and enable Calendar.'
         : `Could not access Apple Calendar: ${errMsg}.`,
     };
   } finally {

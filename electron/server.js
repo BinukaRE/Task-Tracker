@@ -44,9 +44,9 @@ function startCalendarServer(getTasksCallback, port = 52884) {
           res.writeHead(200, {
             'Content-Type': 'text/calendar; charset=utf-8',
             'Content-Length': buf.length,
-            'Content-Disposition': 'inline; filename="task-flow.ics"',
-            'X-WR-CALNAME': 'Task Flow',
-            'X-WR-CALDESC': 'Task Flow Synchronized Tasks',
+            'Content-Disposition': 'inline; filename="task-tracker.ics"',
+            'X-WR-CALNAME': 'Task Tracker',
+            'X-WR-CALDESC': 'Task Tracker Synchronized Tasks',
             'X-PUBLISHED-TTL': 'PT15M',
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
@@ -73,8 +73,8 @@ function startCalendarServer(getTasksCallback, port = 52884) {
           res.writeHead(200, {
             'Content-Type': 'text/calendar; charset=utf-8',
             'Content-Length': buf.length,
-            'Content-Disposition': 'attachment; filename="task-flow-export.ics"',
-            'X-WR-CALNAME': 'Task Flow',
+            'Content-Disposition': 'attachment; filename="task-tracker-export.ics"',
+            'X-WR-CALNAME': 'Task Tracker',
           });
           res.end(buf);
         } catch (err) {

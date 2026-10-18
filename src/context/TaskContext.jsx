@@ -56,7 +56,7 @@ export const TaskProvider = ({ children }) => {
           );
           setTasks(cleanTasks);
         } else {
-          const local = localStorage.getItem('task_flow_tasks');
+          const local = localStorage.getItem('task_tracker_tasks') || localStorage.getItem('task_flow_tasks');
           if (local) {
             try {
               const parsed = JSON.parse(local);
@@ -136,7 +136,7 @@ export const TaskProvider = ({ children }) => {
     if (isElectron) {
       await window.electronAPI.saveTasks(updatedTasks);
     } else {
-      localStorage.setItem('task_flow_tasks', JSON.stringify(updatedTasks));
+      localStorage.setItem('task_tracker_tasks', JSON.stringify(updatedTasks));
     }
   };
 
@@ -266,7 +266,7 @@ export const TaskProvider = ({ children }) => {
           setScrapeNotice({
             type: 'info',
             message: res.message || 'Calendar is closed.',
-            details: 'Task Flow runs silently in the background and will never open Calendar automatically.'
+            details: 'Task Tracker runs silently in the background and will never open Calendar automatically.'
           });
         } else if (res.newTasks && res.newTasks.length > 0) {
           setTasks((prev) => [...res.newTasks, ...prev]);

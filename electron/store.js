@@ -15,6 +15,17 @@ class Store {
         const raw = fs.readFileSync(this.path, 'utf8');
         return JSON.parse(raw);
       }
+      // Seamless migration: check legacy "Task Flow" directory if new "Task Tracker" doesn't have data yet
+      if (app) {
+        const legacyPath = path.join(path.dirname(app.getPath('userData')), 'Task Flow', path.basename(this.path));
+        if (fs.existsSync(legacyPath)) {
+          const raw = fs.readFileSync(legacyPath, 'utf8');
+          const data = JSON.parse(raw);
+          this.data = data;
+          this.save();
+          return data;
+        }
+      }
     } catch (err) {
       console.error(`Error loading store from ${this.path}:`, err);
     }

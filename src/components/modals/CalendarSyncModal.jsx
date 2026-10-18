@@ -253,11 +253,11 @@ export default function CalendarSyncModal() {
                       </span>
                     </div>
                     <p className="text-slate-300 text-[11px] leading-relaxed">
-                      macOS prevented Task Flow from reading your Apple Calendar (Error -1743). Because macOS protects calendars with Privacy & Security permissions, you need to grant access:
+                      macOS prevented Task Tracker from reading your Apple Calendar (Error -1743). Because macOS protects calendars with Privacy & Security permissions, you need to grant access:
                     </p>
                     <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1">
                       <div>1. Click <strong>Open macOS Settings</strong> below.</div>
-                      <div>2. Under <strong>Automation</strong>, find <strong>Task Flow</strong> (or <strong>Electron</strong>).</div>
+                      <div>2. Under <strong>Automation</strong>, find <strong>Task Tracker</strong> (or <strong>Electron</strong>).</div>
                       <div>3. Toggle <strong>Calendar</strong> to <strong className="text-emerald-400">ON</strong>.</div>
                     </div>
                     <div className="flex items-center gap-2 pt-1">
@@ -286,7 +286,7 @@ export default function CalendarSyncModal() {
                   <div className="flex items-center gap-2">
                     <ArrowDownToLine className="w-4 h-4 text-cyan-400" />
                     <h4 className="text-xs font-bold text-slate-200">
-                      Scrape All Events into Task Flow
+                      Scrape All Events into Task Tracker
                     </h4>
                   </div>
                   <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
@@ -375,14 +375,14 @@ export default function CalendarSyncModal() {
               <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-2 text-xs">
                 <div className="flex items-center gap-2 font-semibold text-slate-200">
                   <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>How Task Flow Handles Scraped Data:</span>
+                  <span>How Task Tracker Handles Scraped Data:</span>
                 </div>
                 <ul className="space-y-1.5 text-[11px] text-slate-400 list-disc list-inside">
                   <li>
-                    <strong className="text-slate-300">New events</strong> created in Apple Calendar are ingested as tasks in Task Flow.
+                    <strong className="text-slate-300">New events</strong> created in Apple Calendar are ingested as tasks in Task Tracker.
                   </li>
                   <li>
-                    <strong className="text-slate-300">Existing tasks</strong> in Task Flow are locked: edits made in Apple Calendar are <strong>strictly discarded</strong> to protect your task checklists and progress.
+                    <strong className="text-slate-300">Existing tasks</strong> in Task Tracker are locked: edits made in Apple Calendar are <strong>strictly discarded</strong> to protect your task checklists and progress.
                   </li>
                   <li>
                     <strong className="text-slate-300">Apple Calendar is never altered:</strong> No events will be created, edited, or deleted in your calendar.
@@ -400,7 +400,7 @@ export default function CalendarSyncModal() {
                   Calendar Event Scraper: User Manual
                 </h4>
                 <p className="text-slate-300">
-                  Task Flow features a <strong>strictly read-only</strong> calendar scraper designed to bridge your daily appointments and meetings into your task tracking workflow without ever risking accidental changes to your calendar.
+                  Task Tracker features a <strong>strictly read-only</strong> calendar scraper designed to bridge your daily appointments and meetings into your task tracking workflow without ever risking accidental changes to your calendar.
                 </p>
               </div>
 
@@ -414,21 +414,21 @@ export default function CalendarSyncModal() {
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <p>
-                      <strong>Scraping Events:</strong> Task Flow queries macOS Calendar using read-only AppleScript queries (<code className="text-cyan-300">get events</code>). It converts event titles, start dates, end dates, and notes into tasks.
+                      <strong>Scraping Events:</strong> Task Tracker queries macOS Calendar using read-only AppleScript queries (<code className="text-cyan-300">get events</code>). It converts event titles, start dates, end dates, and notes into tasks.
                     </p>
                   </div>
 
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <p>
-                      <strong>Zero Calendar Mutations:</strong> Task Flow contains NO write commands. It cannot and will not modify, add, or delete any event in your Apple Calendar.
+                      <strong>Zero Calendar Mutations:</strong> Task Tracker contains NO write commands. It cannot and will not modify, add, or delete any event in your Apple Calendar.
                     </p>
                   </div>
 
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <p>
-                      <strong>Rejecting Calendar Edits:</strong> Once an event is in Task Flow, any subsequent edits to that event in Apple Calendar are ignored. Task Flow remains the authoritative place to track completion, subtasks, and focus timers.
+                      <strong>Rejecting Calendar Edits:</strong> Once an event is in Task Tracker, any subsequent edits to that event in Apple Calendar are ignored. Task Tracker remains the authoritative place to track completion, subtasks, and focus timers.
                     </p>
                   </div>
                 </div>
@@ -450,16 +450,16 @@ export default function CalendarSyncModal() {
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                    <strong className="text-white">Step 2: Scrape in Task Flow</strong>
+                    <strong className="text-white">Step 2: Scrape in Task Tracker</strong>
                     <p className="mt-0.5">
-                      In Task Flow, click the <strong>"Scrape Calendar"</strong> button in the top bar or sidebar. You can choose to scrape 7, 14, 30, or 60 days ahead.
+                      In Task Tracker, click the <strong>"Scrape Calendar"</strong> button in the top bar or sidebar. You can choose to scrape 7, 14, 30, or 60 days ahead.
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <strong className="text-white">Step 3: Track & Complete Tasks</strong>
                     <p className="mt-0.5">
-                      The events appear in your <strong>To Do</strong> column with their exact scheduled dates and times. You can add checklists, run Pomodoro focus sessions, and mark them complete in Task Flow!
+                      The events appear in your <strong>To Do</strong> column with their exact scheduled dates and times. You can add checklists, run Pomodoro focus sessions, and mark them complete in Task Tracker!
                     </p>
                   </div>
                 </div>
@@ -472,7 +472,7 @@ export default function CalendarSyncModal() {
                   macOS Calendar Permission
                 </h4>
                 <p>
-                  When scraping for the first time, macOS may prompt: <em>"Task Flow wants to access Calendars"</em>. Click <strong>Allow / OK</strong> so Task Flow can read your schedule. You can manage this at any time in <strong>System Settings → Privacy & Security → Calendars</strong>.
+                  When scraping for the first time, macOS may prompt: <em>"Task Tracker wants to access Calendars"</em>. Click <strong>Allow / OK</strong> so Task Tracker can read your schedule. You can manage this at any time in <strong>System Settings → Privacy & Security → Calendars</strong>.
                 </p>
               </div>
             </div>
